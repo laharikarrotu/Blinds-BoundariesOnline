@@ -1,20 +1,8 @@
 import uvicorn
 import sys
 import os
-import logging
 
 print("=== Python Startup Script Starting ===")
-
-# Set up logging to both file and console
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('/tmp/app.log')
-    ]
-)
-logger = logging.getLogger(__name__)
 
 try:
     print("Step 1: Setting up Python path...")
