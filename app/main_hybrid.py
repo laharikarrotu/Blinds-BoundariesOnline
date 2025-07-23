@@ -44,6 +44,15 @@ def read_root():
         "version": "1.1.0"  # Added version for deployment tracking
     }
 
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": "2025-07-23T11:30:00Z",
+        "version": "1.1.0",
+        "ml_type": "Hybrid (OpenCV + Gemini API)"
+    }
+
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
