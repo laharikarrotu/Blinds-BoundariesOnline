@@ -40,7 +40,8 @@ def read_root():
         "status": "healthy",
         "ml_type": "Hybrid (OpenCV + Gemini API)",
         "features": "Window detection, blind try-on",
-        "gemini_available": GEMINI_API_KEY is not None
+        "gemini_available": GEMINI_API_KEY is not None,
+        "version": "1.1.0"  # Added version for deployment tracking
     }
 
 UPLOAD_DIR = "uploads"
