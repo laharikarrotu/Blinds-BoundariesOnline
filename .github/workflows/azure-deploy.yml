@@ -1,0 +1,141 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
+
+name: Build and deploy Python app to Azure Web App - blinds-boundaries-api
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read #This is required for actions/checkout
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python version
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Upgrade pip and setuptools
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade setuptools wheel build
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt --no-cache-dir
+        
+      # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
+      - name: Run tests (optional)
+        run: |
+          echo "Running basic health checks..."
+          python -c "import fastapi; print('FastAPI imported successfully')"
+          python -c "import cv2; print('OpenCV imported successfully')"
+          python -c "import azure.storage.blob; print('Azure Storage imported successfully')"
+
+      - name: Create deployment package
+        run: |
+          # Create a clean deployment directory
+          mkdir -p deployment
+          
+          # Copy root-level files
+          cp main.py deployment/ 2>/dev/null || echo "main.py not found in root"
+          cp startup.sh deployment/ 2>/dev/null || echo "startup.sh not found in root"
+          cp requirements.txt deployment/ 2>/dev/null || echo "requirements.txt not found in root"
+          
+          # Copy app directory contents (your main FastAPI application)
+          if [ -d "app" ]; then
+            cp -r app/* deployment/
+            echo "Copied app directory contents"
+          else
+            echo "app directory not found"
+          fi
+          
+          # Copy static assets and models
+          if [ -d "blinds" ]; then
+            cp -r blinds deployment/
+            echo "Copied blinds directory"
+          else
+            echo "blinds directory not found"
+          fi
+          
+          if [ -d "models" ]; then
+            cp -r models deployment/
+            echo "Copied models directory"
+          else
+            echo "models directory not found"
+          fi
+          
+          # Create necessary directories for runtime
+          mkdir -p deployment/uploads deployment/masks deployment/results
+          
+          # Make startup script executable
+          chmod +x deployment/startup.sh
+          
+          # List what we're deploying
+          echo "=== Files to be deployed ==="
+          find deployment -type f | head -20
+          echo "..."
+          
+          # Zip the deployment directory
+          cd deployment
+          zip -r ../release.zip ./*
+          cd ..
+          
+          echo "=== Deployment package created ==="
+          ls -lh release.zip
+
+      - name: Upload artifact for deployment jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: release.zip
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+
+      - name: Unzip artifact for deployment
+        run: |
+          unzip release.zip
+          echo "=== Deployed files ==="
+          ls -la
+          echo "=== App directory contents ==="
+          ls -la app/ 2>/dev/null || echo "No app directory found"
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_35AB600D43D74C60ADA2AC4E65A0CE8D }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_276A866638E34B1B8C84C7D98077FC2B }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_3005D1EF01714D65931D987B4E4C731A }}
+
+      - name: 'Deploy to Azure Web App'
+        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
+        with:
+          app-name: 'blinds-boundaries-api'
+          slot-name: 'Production'
+          
+      - name: Verify deployment
+        run: |
+          echo "Deployment completed successfully!"
+          echo "Your app should be available at: https://blinds-boundaries-api.azurewebsites.net" 

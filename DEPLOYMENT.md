@@ -1,124 +1,143 @@
-# Azure Deployment Guide
+# Azure Deployment Guide for Blinds & Boundaries API
 
-## Deploy Backend to Azure App Service
+## Overview
 
-### Prerequisites
-- Azure account with subscription
-- Azure CLI installed
-- Your ML model files (`models/u2netp.pth`)
+This project uses GitHub Actions to automatically deploy a Python FastAPI application to Azure Web App. The deployment process builds the application, packages it with all necessary dependencies, and deploys it to Azure.
 
-### Step 1: Prepare Your Code
-
-1. **Ensure all files are in the `app/` directory:**
-   ```
-   app/
-   ├── main.py
-   ├── u2net.py
-   ├── u2net_inference.py
-   ├── requirements.txt
-   ├── startup.py
-   └── models/
-       └── u2netp.pth
-   ```
-
-2. **Create a `.env` file in the root with your Azure Storage connection string:**
-   ```env
-   AZURE_STORAGE_CONNECTION_STRING=your_connection_string_here
-   AZURE_STORAGE_CONTAINER=window-images
-   ```
-
-### Step 2: Deploy to Azure App Service
-
-#### Option A: Using Azure CLI
-
-```bash
-# Login to Azure
-az login
-
-# Create a resource group
-az group create --name blinds-boundaries-rg --location eastus
-
-# Create an App Service plan
-az appservice plan create --name blinds-boundaries-plan --resource-group blinds-boundaries-rg --sku B1 --is-linux
-
-# Create the web app
-az webapp create --resource-group blinds-boundaries-rg --plan blinds-boundaries-plan --name your-app-name --runtime "PYTHON:3.11"
-
-# Configure environment variables
-az webapp config appsettings set --resource-group blinds-boundaries-rg --name your-app-name --settings AZURE_STORAGE_CONNECTION_STRING="your_connection_string"
-
-# Deploy your code
-az webapp deployment source config-local-git --resource-group blinds-boundaries-rg --name your-app-name
-git remote add azure <git-url-from-previous-command>
-git push azure main
-```
-
-#### Option B: Using Azure Portal
-
-1. **Go to [Azure Portal](https://portal.azure.com)**
-2. **Create a new App Service**
-3. **Choose Python 3.11 runtime**
-4. **Upload your code or connect to GitHub**
-5. **Set environment variables in Configuration**
-
-### Step 3: Configure Environment Variables
-
-In Azure App Service → Configuration → Application settings:
+## Architecture
 
 ```
-AZURE_STORAGE_CONNECTION_STRING = your_azure_storage_connection_string
-AZURE_STORAGE_CONTAINER = window-images
+GitHub Repository
+       ↓
+GitHub Actions Workflow
+       ↓
+Azure Web App Service
+       ↓
+FastAPI Application (main_hybrid.py)
 ```
 
-### Step 4: Update Frontend Configuration
+## Workflow Steps
 
-Once deployed, your backend URL will be:
+### 1. Build Job (`build`)
+- **Checkout**: Downloads the latest code from the main branch
+- **Python Setup**: Installs Python 3.12 and upgrades pip/setuptools
+- **Dependencies**: Installs all packages from `requirements.txt`
+- **Testing**: Runs basic import tests to verify dependencies
+- **Packaging**: Creates a deployment package with all necessary files
+- **Artifact**: Uploads the package as a GitHub artifact
+
+### 2. Deploy Job (`deploy`)
+- **Download**: Retrieves the build artifact
+- **Extract**: Unzips the deployment package
+- **Azure Login**: Authenticates with Azure using service principal
+- **Deploy**: Deploys the application to Azure Web App
+- **Verify**: Confirms successful deployment
+
+## Key Files
+
+### Application Files
+- `main.py` - Azure App Service entry point
+- `app/main_hybrid.py` - Main FastAPI application with window detection
+- `app/hybrid_detector.py` - ML model for window detection
+- `startup.sh` - Startup script for Azure Web App
+
+### Configuration Files
+- `requirements.txt` - Python dependencies
+- `.github/workflows/azure-deploy.yml` - GitHub Actions workflow
+- `blinds/` - Static blind texture images
+
+## Azure Configuration
+
+### Required Secrets
+The following secrets must be configured in your GitHub repository:
+
+1. `AZUREAPPSERVICE_CLIENTID_35AB600D43D74C60ADA2AC4E65A0CE8D` - Azure service principal client ID
+2. `AZUREAPPSERVICE_TENANTID_276A866638E34B1B8C84C7D98077FC2B` - Azure tenant ID
+3. `AZUREAPPSERVICE_SUBSCRIPTIONID_3005D1EF01714D65931D987B4E4C731A` - Azure subscription ID
+
+### Environment Variables
+Configure these in Azure Web App Configuration:
+
+- `AZURE_STORAGE_CONNECTION_STRING` - For blob storage (optional)
+- `AZURE_STORAGE_CONTAINER` - Blob container name (default: "window-images")
+- `GEMINI_API_KEY` - For Gemini API integration (optional)
+
+## Deployment Package Contents
+
+The deployment package includes:
 ```
-https://your-app-name.azurewebsites.net
+deployment/
+├── main.py                 # Azure entry point
+├── startup.sh             # Startup script
+├── requirements.txt       # Dependencies
+├── main_hybrid.py         # Main FastAPI app
+├── hybrid_detector.py     # ML detector
+├── blinds/                # Blind textures
+├── models/                # ML models (if any)
+├── uploads/               # Runtime directory
+├── masks/                 # Runtime directory
+└── results/               # Runtime directory
 ```
 
-Update your `frontend/.env`:
-```env
-VITE_AUTH0_DOMAIN=your-domain.auth0.com
-VITE_AUTH0_CLIENT_ID=your-client-id
-VITE_API_URL=https://your-app-name.azurewebsites.net
-```
+## API Endpoints
 
-### Step 5: Test Your API
-
-Your API endpoints will be available at:
-- `https://your-app-name.azurewebsites.net/`
-- `https://your-app-name.azurewebsites.net/upload-image`
-- `https://your-app-name.azurewebsites.net/detect-window`
-- `https://your-app-name.azurewebsites.net/try-on`
-- `https://your-app-name.azurewebsites.net/blinds-list`
-
-## Alternative: Azure Container Instances
-
-For more control, you can containerize your app:
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-EXPOSE 8000
-
-CMD ["python", "startup.py"]
-```
+Once deployed, your API will be available at:
+- **Base URL**: `https://blinds-boundaries-api.azurewebsites.net`
+- **Health Check**: `GET /health`
+- **Upload Image**: `POST /upload-image`
+- **Detect Window**: `POST /detect-window`
+- **Try On Blinds**: `POST /try-on`
+- **List Blinds**: `GET /blinds-list`
 
 ## Troubleshooting
 
-1. **Model files too large**: Use Azure File Storage or mount the model files
-2. **Memory issues**: Upgrade to a larger App Service plan
-3. **CORS errors**: Ensure your frontend domain is in the CORS settings
-4. **Environment variables**: Check Azure App Service Configuration
+### Common Issues
 
-## Cost Estimation
+1. **Import Errors**: Check that all dependencies are in `requirements.txt`
+2. **File Not Found**: Ensure all necessary directories are created in the deployment package
+3. **Azure Authentication**: Verify all Azure secrets are correctly configured
+4. **Startup Failures**: Check the startup script permissions and Azure Web App logs
 
-- **Basic App Service Plan (B1)**: ~$13/month
-- **Azure Blob Storage**: ~$0.02/GB/month
-- **Total**: ~$15-20/month for basic usage 
+### Debugging
+
+1. **GitHub Actions Logs**: Check the workflow run logs for build errors
+2. **Azure Logs**: Use Azure Portal to view application logs
+3. **Health Check**: Test the `/health` endpoint to verify the app is running
+
+## Manual Deployment
+
+If you need to deploy manually:
+
+1. Create a deployment package:
+   ```bash
+   mkdir deployment
+   cp main.py startup.sh requirements.txt deployment/
+   cp -r app/* deployment/
+   cp -r blinds deployment/
+   mkdir -p deployment/{uploads,masks,results}
+   chmod +x deployment/startup.sh
+   cd deployment && zip -r ../release.zip ./*
+   ```
+
+2. Deploy to Azure using Azure CLI or Azure Portal
+
+## Security Considerations
+
+- All Azure credentials are stored as GitHub secrets
+- Environment variables are configured in Azure Web App
+- CORS is configured for frontend integration
+- File uploads are validated for image types only
+
+## Performance Optimization
+
+- Uses `opencv-python-headless` for smaller deployment size
+- Static files are served directly by FastAPI
+- Azure Blob Storage integration for scalable file storage
+- Hybrid detection combines OpenCV and Gemini API for accuracy
+
+## Monitoring
+
+- Health check endpoint for monitoring
+- Azure Application Insights can be enabled
+- Logs are available in Azure Portal
+- GitHub Actions provides deployment status 

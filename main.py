@@ -16,26 +16,42 @@ try:
     from fastapi import FastAPI
     import uvicorn
     
-    print("Step 2: Creating FastAPI app...")
-    app = FastAPI()
-    
-    @app.get("/")
-    def read_root():
-        return {"message": "Blinds & Boundaries API is working!", "status": "healthy"}
-    
-    @app.get("/health")
-    def health_check():
-        return {"status": "healthy", "version": "1.0.0"}
-    
-    print("Step 3: Creating directories...")
+    print("Step 2: Creating directories...")
     directories = ['uploads', 'masks', 'blinds', 'results']
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
         print(f"Created directory: {directory}")
     
+    print("Step 3: Importing main application...")
+    # Try to import the main application from app/main_hybrid.py
+    try:
+        from main_hybrid import app
+        print("✅ Successfully imported main_hybrid.py application")
+        application = app
+    except ImportError as e:
+        print(f"⚠️  Could not import main_hybrid.py: {e}")
+        print("Creating fallback FastAPI app...")
+        
+        # Fallback: Create a basic FastAPI app
+        app = FastAPI()
+        
+        @app.get("/")
+        def read_root():
+            return {
+                "message": "Blinds & Boundaries API is working!", 
+                "status": "healthy",
+                "note": "Running fallback app - main_hybrid.py not found"
+            }
+        
+        @app.get("/health")
+        def health_check():
+            return {"status": "healthy", "version": "1.0.0", "mode": "fallback"}
+        
+        application = app
+    
     print("Step 4: Setting up for Azure...")
     # This is what Azure App Service looks for
-    application = app
+    # application is now set to either the imported app or fallback app
     
     print("=== MAIN.PY SUCCESSFULLY LOADED ===")
     print("FastAPI app is ready for Azure App Service")

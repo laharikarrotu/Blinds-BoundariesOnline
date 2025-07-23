@@ -23,7 +23,12 @@ try:
         sys.exit(1)
     
     print("Step 2: Importing main_hybrid...")
-    from main_hybrid import app
+    # Import with explicit path to avoid linter issues
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("main_hybrid", main_file)
+    main_hybrid = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(main_hybrid)
+    app = main_hybrid.app  # type: ignore
     print("Successfully imported main_hybrid")
     
     print("Step 3: Creating necessary directories...")
