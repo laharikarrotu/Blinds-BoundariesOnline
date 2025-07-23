@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 # Import the hybrid detector
-from app.hybrid_detector import HybridWindowDetector
+from hybrid_detector import HybridWindowDetector
 
 app = FastAPI()
 
