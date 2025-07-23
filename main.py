@@ -25,6 +25,10 @@ try:
     print("Step 3: Importing main application...")
     # Try to import the main application from app/main_hybrid.py
     try:
+        # Add app directory to Python path
+        import sys
+        app_path = os.path.join(os.path.dirname(__file__), 'app')
+        sys.path.insert(0, app_path)
         from main_hybrid import app
         print("✅ Successfully imported main_hybrid.py application")
         application = app
