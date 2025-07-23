@@ -42,8 +42,8 @@ def create_deployment_package():
                     else:
                         print(f"  Skipped duplicate: {arcname}")
         
-        # Add supporting directories
-        support_dirs = ['blinds', 'models', 'uploads', 'masks', 'results']
+        # Add supporting directories (only static content, not runtime files)
+        support_dirs = ['blinds', 'models']
         for dir_name in support_dirs:
             dir_path = Path(dir_name)
             if dir_path.exists():
@@ -54,6 +54,19 @@ def create_deployment_package():
                         print(f"  Added support file: {arcname}")
             else:
                 print(f"  Warning: {dir_name} directory not found")
+        
+        # Create empty runtime directories (don't include their contents)
+        runtime_dirs = ['uploads', 'masks', 'results']
+        for dir_name in runtime_dirs:
+            dir_path = Path(dir_name)
+            if not dir_path.exists():
+                dir_path.mkdir(parents=True, exist_ok=True)
+            # Add a .gitkeep file to ensure directory is created in deployment
+            gitkeep_file = dir_path / '.gitkeep'
+            if not gitkeep_file.exists():
+                gitkeep_file.touch()
+            zipf.write(gitkeep_file, gitkeep_file.relative_to(Path('.')))
+            print(f"  Added runtime directory: {dir_name}/")
     
     print("✅ Deployment package created: deployment.zip")
     return 'deployment.zip'

@@ -126,10 +126,17 @@ public
 tmp/
 temp/
 
-# User uploads and generated content
-uploads/
-results/
-masks/
+# User uploads and generated content (runtime files)
+uploads/*
+!uploads/.gitkeep
+results/*
+!results/.gitkeep
+masks/*
+!masks/.gitkeep
+
+# Deployment artifacts
+deployment.zip
+*.zip
 
 # Large model files (if you want to exclude them)
 models/*.pth

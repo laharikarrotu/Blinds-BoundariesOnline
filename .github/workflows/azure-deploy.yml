@@ -75,8 +75,12 @@ jobs:
             echo "models directory not found"
           fi
           
-          # Create necessary directories for runtime
+          # Create necessary directories for runtime (empty, no files)
           mkdir -p deployment/uploads deployment/masks deployment/results
+          # Add .gitkeep files to ensure directories are created
+          touch deployment/uploads/.gitkeep
+          touch deployment/masks/.gitkeep
+          touch deployment/results/.gitkeep
           
           # Make startup script executable
           chmod +x deployment/startup.sh
