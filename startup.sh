@@ -10,5 +10,6 @@ echo "=== Checking Python ==="
 python --version
 which python
 
-echo "=== Starting Python application ==="
-python startup.py 
+echo "=== Starting FastAPI application ==="
+# Start the FastAPI app with uvicorn
+uvicorn main:application --host 0.0.0.0 --port 8000 

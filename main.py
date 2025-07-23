@@ -38,6 +38,10 @@ try:
     application = app
     
     print("=== MAIN.PY SUCCESSFULLY LOADED ===")
+    print("FastAPI app is ready for Azure App Service")
+    
+    # Don't start the server here - Azure will handle that
+    # Just make sure the app is available
     
 except Exception as e:
     print(f"ERROR: Failed to setup main.py: {e}")

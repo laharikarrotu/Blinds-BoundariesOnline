@@ -32,16 +32,38 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade setuptools wheel
-          pip install -r app/requirements.txt --no-cache-dir
+          pip install -r requirements.txt --no-cache-dir
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
       - name: Zip artifact for deployment
         run: |
-          # Copy app files to root level for deployment
-          cp -r app/* ./
-          # Zip the entire project
-          zip -r release.zip ./* -x "*.git*" "node_modules/*" "frontend/*" ".github/*"
+          # Create a clean deployment directory
+          mkdir -p deployment
+          
+          # Copy root-level files (main.py, startup.sh, requirements.txt, etc.)
+          cp main.py deployment/ 2>/dev/null || echo "main.py not found in root"
+          cp startup.sh deployment/ 2>/dev/null || echo "startup.sh not found in root"
+          cp requirements.txt deployment/ 2>/dev/null || echo "requirements.txt not found in root"
+          
+          # Copy app directory contents
+          cp -r app/* deployment/
+          
+          # Copy other necessary directories
+          cp -r blinds deployment/ 2>/dev/null || echo "blinds directory not found"
+          cp -r models deployment/ 2>/dev/null || echo "models directory not found"
+          
+          # Create necessary directories
+          mkdir -p deployment/uploads deployment/masks deployment/results
+          
+          # List what we're deploying
+          echo "Files to be deployed:"
+          ls -la deployment/
+          
+          # Zip the deployment directory
+          cd deployment
+          zip -r ../release.zip ./*
+          cd ..
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
