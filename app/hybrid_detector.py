@@ -1,3 +1,5 @@
+print("=== Loading hybrid_detector.py ===")
+
 import cv2
 import numpy as np
 from PIL import Image
@@ -6,6 +8,8 @@ import requests
 import json
 import base64
 from io import BytesIO
+
+print("=== Successfully imported all modules in hybrid_detector ===")
 
 class HybridWindowDetector:
     """

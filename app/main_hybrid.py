@@ -1,3 +1,5 @@
+print("=== Loading main_hybrid.py ===")
+
 from fastapi import FastAPI, File, UploadFile, Query
 import os
 import shutil
@@ -10,8 +12,10 @@ import numpy as np
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+print("=== Importing hybrid_detector ===")
 # Import the hybrid detector
 from hybrid_detector import HybridWindowDetector
+print("=== Successfully imported hybrid_detector ===")
 
 app = FastAPI()
 
