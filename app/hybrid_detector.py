@@ -13,11 +13,16 @@ class HybridWindowDetector:
     """
     
     def __init__(self, gemini_api_key=None):
-        self.gemini_api_key = gemini_api_key
-        self.gemini_available = gemini_api_key is not None
-        print(f"✅ Hybrid Window Detector initialized")
-        print(f"   - OpenCV: Always available (FREE)")
-        print(f"   - Gemini API: {'Available' if self.gemini_available else 'Not configured'}")
+        try:
+            self.gemini_api_key = gemini_api_key
+            self.gemini_available = gemini_api_key is not None
+            print(f"✅ Hybrid Window Detector initialized")
+            print(f"   - OpenCV: Always available (FREE)")
+            print(f"   - Gemini API: {'Available' if self.gemini_available else 'Not configured'}")
+        except Exception as e:
+            print(f"⚠️ Warning: Error initializing Hybrid Window Detector: {e}")
+            self.gemini_api_key = None
+            self.gemini_available = False
     
     def detect_windows_opencv(self, image_path, mask_save_path):
         """
