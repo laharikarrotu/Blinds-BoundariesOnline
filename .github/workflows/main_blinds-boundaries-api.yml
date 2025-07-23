@@ -38,8 +38,10 @@ jobs:
 
       - name: Zip artifact for deployment
         run: |
-          cd app
-          zip -r ../release.zip ./*
+          # Copy app files to root level for deployment
+          cp -r app/* ./
+          # Zip the entire project
+          zip -r release.zip ./* -x "*.git*" "node_modules/*" "frontend/*" ".github/*"
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
