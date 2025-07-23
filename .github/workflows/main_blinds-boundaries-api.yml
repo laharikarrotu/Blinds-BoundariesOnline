@@ -24,14 +24,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Create and start virtual environment
+      - name: Upgrade pip and setuptools
         run: |
-          python -m venv venv
-          source venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install --upgrade setuptools wheel
       
       - name: Install dependencies
         run: |
-          source venv/bin/activate
           pip install -r app/requirements.txt
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
@@ -45,9 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: |
-            release.zip
-            !venv/
+          path: release.zip
 
   deploy:
     runs-on: ubuntu-latest
