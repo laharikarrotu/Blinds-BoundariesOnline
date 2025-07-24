@@ -7,6 +7,10 @@ import Favorites from './components/Favorites';
 import ShareResults from './components/ShareResults';
 import LoginButton from './components/LoginButton';
 import LogoutButton from './components/LogoutButton';
+import RealTimePreview from './components/RealTimePreview';
+import AdvancedColorPicker from './components/AdvancedColorPicker';
+import RoomTypeSelector from './components/RoomTypeSelector';
+import LightingEffects from './components/LightingEffects';
 
 function App() {
   const { isAuthenticated } = useAuth0();
@@ -15,9 +19,20 @@ function App() {
   const [color, setColor] = useState('#ffffff');
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<'try-on' | 'favorites'>('try-on');
+  const [selectedRoom, setSelectedRoom] = useState('');
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
+  const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(false);
+  const [selectedLighting, setSelectedLighting] = useState('day');
 
   const handleTryOnComplete = (url: string) => {
     setResultUrl(url);
+  };
+
+  const handleImageUpload = (id: string, imageUrl?: string) => {
+    setImageId(id);
+    if (imageUrl) {
+      setOriginalImageUrl(imageUrl);
+    }
   };
 
   return (
@@ -43,6 +58,14 @@ function App() {
             >
               Favorites
             </button>
+            <button
+              onClick={() => setShowAdvancedFeatures(!showAdvancedFeatures)}
+              className={`text-white hover:underline font-medium ${
+                showAdvancedFeatures ? 'underline' : ''
+              }`}
+            >
+              {showAdvancedFeatures ? 'Hide' : 'Show'} Advanced
+            </button>
             {isAuthenticated ? <LogoutButton /> : <LoginButton />}
           </nav>
         </div>
@@ -65,14 +88,50 @@ function App() {
               {/* Step 1: Upload Image */}
               <div className="bg-white rounded-xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Step 1: Upload Your Window Photo</h2>
-                <ImageUpload onUpload={setImageId} />
+                <ImageUpload onUpload={(id) => handleImageUpload(id, '')} />
               </div>
+
+              {/* Advanced Features */}
+              {showAdvancedFeatures && (
+                <>
+                  {/* Room Type Selection */}
+                  <div className="bg-white rounded-xl shadow-lg p-8">
+                    <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Room Type Selection</h2>
+                    <RoomTypeSelector selectedRoom={selectedRoom} onRoomChange={setSelectedRoom} />
+                  </div>
+
+                  {/* Advanced Color Picker */}
+                  <div className="bg-white rounded-xl shadow-lg p-8">
+                    <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Advanced Color Selection</h2>
+                    <AdvancedColorPicker selectedColor={color} onColorChange={setColor} />
+                  </div>
+
+                  {/* Lighting Effects */}
+                  <div className="bg-white rounded-xl shadow-lg p-8">
+                    <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Lighting Effects</h2>
+                    <LightingEffects onLightingChange={setSelectedLighting} />
+                    <p className="text-center text-sm text-gray-600 mt-2">
+                      Current lighting: {selectedLighting}
+                    </p>
+                  </div>
+                </>
+              )}
 
               {/* Step 2: Select Blinds */}
               <div className="bg-white rounded-xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Step 2: Choose Your Blinds</h2>
                 <BlindsSelector onChange={(b, c) => { setBlindName(b); setColor(c); }} />
               </div>
+
+              {/* Real-time Preview */}
+              {imageId && blindName && originalImageUrl && (
+                <RealTimePreview 
+                  imageId={imageId}
+                  selectedBlind={blindName}
+                  selectedColor={color}
+                  originalImageUrl={originalImageUrl}
+                />
+              )}
 
               {/* Step 3: Try On */}
               <div className="bg-white rounded-xl shadow-lg p-8">

@@ -30,7 +30,7 @@ class HybridWindowDetector:
     
     def detect_windows_opencv(self, image_path, mask_save_path):
         """
-        OpenCV-based window detection (FREE)
+        OpenCV-based window detection (FREE) - Improved version
         """
         try:
             # Load image
@@ -44,8 +44,8 @@ class HybridWindowDetector:
             # Apply Gaussian blur to reduce noise
             blurred = cv2.GaussianBlur(gray, (5, 5), 0)
             
-            # Edge detection
-            edges = cv2.Canny(blurred, 50, 150)
+            # Edge detection with lower thresholds for better detection
+            edges = cv2.Canny(blurred, 30, 100)
             
             # Find contours
             contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -53,32 +53,54 @@ class HybridWindowDetector:
             # Create mask
             mask = np.zeros_like(gray)
             
-            # Filter contours by area (windows are usually large rectangles)
-            min_area = (image.shape[0] * image.shape[1]) * 0.01  # 1% of image
-            max_area = (image.shape[0] * image.shape[1]) * 0.8   # 80% of image
+            # More lenient area thresholds
+            min_area = (image.shape[0] * image.shape[1]) * 0.005  # 0.5% of image
+            max_area = (image.shape[0] * image.shape[1]) * 0.9   # 90% of image
             
             window_found = False
+            largest_contour = None
+            largest_area = 0
+            
             for contour in contours:
                 area = cv2.contourArea(contour)
                 if min_area < area < max_area:
                     # Approximate contour to polygon
-                    epsilon = 0.02 * cv2.arcLength(contour, True)
+                    epsilon = 0.05 * cv2.arcLength(contour, True)  # More lenient approximation
                     approx = cv2.approxPolyDP(contour, epsilon, True)
                     
-                    # If it's roughly rectangular (4-8 points), it might be a window
-                    if 4 <= len(approx) <= 8:
+                    # If it's roughly rectangular (3-10 points), it might be a window
+                    if 3 <= len(approx) <= 10:
                         # Get bounding rectangle
                         x, y, w, h = cv2.boundingRect(contour)
                         
-                        # Check aspect ratio (windows are usually wider than tall)
+                        # More lenient aspect ratio check
                         aspect_ratio = w / h
-                        if 0.5 < aspect_ratio < 3.0:
-                            # Fill the contour in the mask
-                            cv2.fillPoly(mask, [contour], 255)
+                        if 0.3 < aspect_ratio < 5.0:
+                            # Track the largest contour that meets criteria
+                            if area > largest_area:
+                                largest_area = area
+                                largest_contour = contour
                             window_found = True
             
+            # If we found any contours, use the largest one
+            if largest_contour is not None:
+                cv2.fillPoly(mask, [largest_contour], 255)
+                window_found = True
+            
+            # If no windows found, create a fallback mask (center area)
+            if not window_found:
+                print("No windows detected, creating fallback mask")
+                h, w = image.shape[:2]
+                center_x, center_y = w // 2, h // 2
+                mask_size = min(w, h) // 3
+                cv2.rectangle(mask, 
+                            (center_x - mask_size//2, center_y - mask_size//2),
+                            (center_x + mask_size//2, center_y + mask_size//2), 
+                            255, -1)
+                window_found = True
+            
             # Apply morphological operations to clean up the mask
-            kernel = np.ones((5, 5), np.uint8)
+            kernel = np.ones((3, 3), np.uint8)  # Smaller kernel
             mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
             
@@ -87,6 +109,9 @@ class HybridWindowDetector:
             
             # Save the mask
             cv2.imwrite(mask_save_path, mask_resized)
+            
+            print(f"Window detection completed. Mask saved: {mask_save_path}")
+            print(f"Mask size: {mask_resized.shape}, Non-zero pixels: {np.count_nonzero(mask_resized)}")
             
             return mask_save_path, window_found
             

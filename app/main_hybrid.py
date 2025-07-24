@@ -1,5 +1,12 @@
 print("=== Loading main_hybrid.py ===")
 
+# Ensure python-multipart is available
+try:
+    import multipart
+    print("✅ python-multipart is available")
+except ImportError:
+    print("⚠️ python-multipart not available, this may cause upload issues")
+
 from fastapi import FastAPI, File, UploadFile, Query
 import os
 import shutil
@@ -119,24 +126,40 @@ def upload_to_azure_blob(file_path: str, blob_name: str) -> str:
         print(f"Azure upload error: {e}")
         return None
 
+@app.options("/upload-image")
+def upload_image_options():
+    """Handle CORS preflight requests for upload endpoint"""
+    return {"message": "CORS preflight OK"}
+
 @app.post("/upload-image")
 def upload_image(file: UploadFile = File(...)):
-    # Basic validation for image files
-    if not file.filename.lower().endswith((".jpg", ".jpeg", ".png")):
-        return JSONResponse(status_code=400, content={"error": "Only .jpg, .jpeg, .png files are allowed."})
-    # Generate a unique filename
-    ext = os.path.splitext(file.filename)[1]
-    image_id = str(uuid.uuid4())
-    unique_filename = f"{image_id}{ext}"
-    file_path = os.path.join(UPLOAD_DIR, unique_filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    # Upload to Azure Blob Storage (optional)
-    blob_url = upload_to_azure_blob(file_path, unique_filename)
-    response = {"message": "Image uploaded successfully!", "image_id": image_id}
-    if blob_url:
-        response["url"] = blob_url
-    return response
+    print(f"Upload request received for file: {file.filename}")
+    try:
+        # Basic validation for image files
+        if not file.filename.lower().endswith((".jpg", ".jpeg", ".png")):
+            return JSONResponse(status_code=400, content={"error": "Only .jpg, .jpeg, .png files are allowed."})
+        
+        # Generate a unique filename
+        ext = os.path.splitext(file.filename)[1]
+        image_id = str(uuid.uuid4())
+        unique_filename = f"{image_id}{ext}"
+        file_path = os.path.join(UPLOAD_DIR, unique_filename)
+        
+        print(f"Saving file to: {file_path}")
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Upload to Azure Blob Storage (optional)
+        blob_url = upload_to_azure_blob(file_path, unique_filename)
+        response = {"message": "Image uploaded successfully!", "image_id": image_id}
+        if blob_url:
+            response["url"] = blob_url
+        
+        print(f"Upload successful: {image_id}")
+        return response
+    except Exception as e:
+        print(f"Upload error: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Upload failed: {str(e)}"})
 
 @app.post("/detect-window")
 def detect_window(image_id: str = Query(..., description="The image_id returned from /upload-image")):
@@ -228,8 +251,25 @@ def try_on(
     mask_bin = (mask_np > 128).astype(np.uint8) * 255
     mask_img_bin = Image.fromarray(mask_bin)
     result_img = orig_img.copy()
-    # Composite: where mask is white, use blind_img; else use orig_img
-    result_img.paste(blind_img, (0, 0), mask_img_bin)
+    
+    # Make the blinds more visible by blending with original
+    # Convert to numpy arrays for processing
+    orig_np = np.array(orig_img)
+    blind_np = np.array(blind_img)
+    mask_np_bin = np.array(mask_img_bin)
+    
+    # Create a more visible blend
+    alpha = 0.7  # Blend factor - blinds will be 70% visible
+    for i in range(3):  # RGB channels
+        result_np = orig_np[:, :, i].astype(float)
+        blind_channel = blind_np[:, :, i].astype(float)
+        mask_channel = mask_np_bin.astype(float) / 255.0
+        
+        # Blend: result = original * (1 - mask * alpha) + blind * mask * alpha
+        result_np = result_np * (1 - mask_channel * alpha) + blind_channel * mask_channel * alpha
+        result_img.putdata(result_np.astype(np.uint8).flatten())
+    
+    print(f"Try-on completed. Result saved with mask area: {np.count_nonzero(mask_np_bin)} pixels")
     
     # Save and upload result
     result_filename = f"tryon_{image_id}_{os.path.splitext(blind_name)[0]}.png"

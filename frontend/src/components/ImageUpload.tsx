@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { API_ENDPOINTS } from '../config';
 
 interface ImageUploadProps {
-  onUpload: (imageId: string) => void;
+  onUpload: (imageId: string, imageUrl?: string) => void;
 }
 
 export default function ImageUpload({ onUpload }: ImageUploadProps) {
@@ -61,8 +61,9 @@ export default function ImageUpload({ onUpload }: ImageUploadProps) {
       }
 
       const result = await response.json();
-      setUploadedImage(URL.createObjectURL(file));
-      onUpload(result.image_id);
+      const imageUrl = URL.createObjectURL(file);
+      setUploadedImage(imageUrl);
+      onUpload(result.image_id, imageUrl);
       
     } catch (err) {
       setError('Failed to upload image. Please try again.');

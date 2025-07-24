@@ -1,18 +1,14 @@
 import { useState, useEffect } from 'react';
 import { API_ENDPOINTS } from '../config';
 
-interface Blind {
-  id: string;
-  name: string;
-  image_url: string;
-}
+
 
 interface BlindsSelectorProps {
   onChange: (blindName: string, color: string) => void;
 }
 
 export default function BlindsSelector({ onChange }: BlindsSelectorProps) {
-  const [blinds, setBlinds] = useState<Blind[]>([]);
+  const [blinds, setBlinds] = useState<string[]>([]);
   const [selectedBlind, setSelectedBlind] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('#ffffff');
   const [loading, setLoading] = useState(true);
@@ -74,20 +70,20 @@ export default function BlindsSelector({ onChange }: BlindsSelectorProps) {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         {blinds.map((blind) => (
           <div
-            key={blind.id}
+            key={blind}
             className={`cursor-pointer rounded-lg border-2 transition-all ${
-              selectedBlind === blind.name
+              selectedBlind === blind
                 ? 'border-blue-500 shadow-lg'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
-            onClick={() => setSelectedBlind(blind.name)}
+            onClick={() => setSelectedBlind(blind)}
           >
             <img
-              src={blind.image_url}
-              alt={blind.name}
+              src={`http://localhost:8000/blinds/${blind}`}
+              alt={blind}
               className="w-full h-20 object-cover bg-gray-100"
             />
-            <p className="text-sm text-center p-2 font-medium">{blind.name}</p>
+            <p className="text-sm text-center p-2 font-medium">{blind}</p>
           </div>
         ))}
       </div>

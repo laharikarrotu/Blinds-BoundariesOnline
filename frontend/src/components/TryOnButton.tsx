@@ -24,16 +24,30 @@ export default function TryOnButton({ imageId, blindName, color, onComplete }: T
     setResultUrl(null);
 
     try {
-      const response = await fetch(API_ENDPOINTS.TRY_ON, {
+      // Step 1: Detect window first
+      console.log('Detecting window...');
+      const detectParams = new URLSearchParams({ image_id: imageId });
+      const detectResponse = await fetch(`${API_ENDPOINTS.DETECT_WINDOW}?${detectParams}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image_id: imageId,
-          blind_name: blindName,
-          color: color,
-        }),
+      });
+
+      if (!detectResponse.ok) {
+        throw new Error('Window detection failed');
+      }
+
+      console.log('Window detection successful, trying on blinds...');
+      
+      // Step 2: Try on blinds
+      const params = new URLSearchParams({
+        image_id: imageId,
+        blind_name: blindName,
+      });
+      if (color) {
+        params.append('color', color);
+      }
+      
+      const response = await fetch(`${API_ENDPOINTS.TRY_ON}?${params}`, {
+        method: 'POST',
       });
 
       if (!response.ok) {
