@@ -22,7 +22,15 @@ app = FastAPI()
 # Allow CORS for frontend development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "*",  # Allow all origins for development
+        "https://blinds-boundaries-online.vercel.app",
+        "https://blinds-boundaries-online-*.vercel.app",  # Allow all Vercel preview URLs
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -237,3 +245,9 @@ def try_on(
     if result_url:
         response["result_url"] = result_url
     return response 
+
+# For local development
+if __name__ == "__main__":
+    import uvicorn
+    print("Starting local development server...")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info") 
