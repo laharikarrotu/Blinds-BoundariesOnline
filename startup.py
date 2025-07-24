@@ -39,11 +39,10 @@ try:
         print(f"Created/verified directory: {directory}")
     
     print("Step 4: Starting uvicorn server...")
-    print("Server will start on 0.0.0.0:8000")
     
     # For Azure App Service, we need to use the PORT environment variable
     port = int(os.environ.get("PORT", 8000))
-    print(f"Using port: {port}")
+    print(f"Server will start on 0.0.0.0:{port}")
     
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     
