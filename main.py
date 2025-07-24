@@ -64,15 +64,13 @@ try:
         
         application = app
     
-    print("Step 4: Setting up for Azure...")
-    # This is what Azure App Service looks for
-    # application is now set to either the imported app or fallback app
+    print("Step 4: Starting the server...")
+    # For Azure App Service, we need to use the PORT environment variable
+    port = int(os.environ.get("PORT", 8000))
+    print(f"Starting server on 0.0.0.0:{port}")
     
-    print("=== MAIN.PY SUCCESSFULLY LOADED ===")
-    print("FastAPI app is ready for Azure App Service")
-    
-    # Don't start the server here - Azure will handle that
-    # Just make sure the app is available
+    # Start the uvicorn server
+    uvicorn.run(application, host="0.0.0.0", port=port, log_level="info")
     
 except Exception as e:
     print(f"ERROR: Failed to setup main.py: {e}")
