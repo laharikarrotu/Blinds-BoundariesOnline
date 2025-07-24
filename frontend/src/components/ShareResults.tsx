@@ -8,7 +8,6 @@ interface ShareResultsProps {
 
 export default function ShareResults({ resultUrl, blindName, color }: ShareResultsProps) {
   const [copied, setCopied] = useState(false);
-  const [shareUrl, setShareUrl] = useState('');
 
   const generateShareUrl = () => {
     const url = new URL(window.location.href);
