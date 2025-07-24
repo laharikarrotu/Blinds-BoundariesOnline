@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_ENDPOINTS } from '../config';
 
 interface Blind {
   id: string;
@@ -40,7 +41,7 @@ export default function BlindsSelector({ onChange }: BlindsSelectorProps) {
 
   const fetchBlinds = async () => {
     try {
-      const response = await fetch('http://localhost:8000/blinds');
+      const response = await fetch(API_ENDPOINTS.BLINDS_LIST);
       if (!response.ok) {
         throw new Error('Failed to fetch blinds');
       }

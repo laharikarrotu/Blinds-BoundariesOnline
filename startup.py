@@ -6,21 +6,38 @@ print("=== Python Startup Script Starting ===")
 
 try:
     print("Step 1: Setting up Python path...")
-    # Add the app directory to the Python path
-    app_path = os.path.join(os.path.dirname(__file__), 'app')
-    sys.path.insert(0, app_path)
-    print(f"Added {app_path} to Python path")
+    current_dir = os.path.dirname(__file__)
+    print(f"Current directory: {current_dir}")
+    print(f"Files in current directory: {os.listdir(current_dir)}")
     
-    # Check if the app directory exists
-    if not os.path.exists(app_path):
-        print(f"ERROR: App directory {app_path} does not exist!")
+    # Try to find main_hybrid.py in different possible locations
+    possible_paths = [
+        os.path.join(current_dir, 'main_hybrid.py'),  # Flattened structure
+        os.path.join(current_dir, 'app', 'main_hybrid.py'),  # Directory structure
+    ]
+    
+    main_file = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            main_file = path
+            print(f"✅ Found main_hybrid.py at: {path}")
+            break
+    
+    if main_file is None:
+        print("❌ main_hybrid.py not found in any expected location!")
+        print("Searched in:")
+        for path in possible_paths:
+            print(f"  - {path}")
+        print("Available files:")
+        for file in os.listdir(current_dir):
+            print(f"  - {file}")
         sys.exit(1)
     
-    # Check if main_hybrid.py exists
-    main_file = os.path.join(app_path, 'main_hybrid.py')
-    if not os.path.exists(main_file):
-        print(f"ERROR: main_hybrid.py not found at {main_file}")
-        sys.exit(1)
+    # If main_hybrid.py is in app directory, add it to Python path
+    if 'app' in main_file:
+        app_path = os.path.join(current_dir, 'app')
+        sys.path.insert(0, app_path)
+        print(f"Added {app_path} to Python path")
     
     print("Step 2: Importing main_hybrid...")
     # Import with explicit path to avoid linter issues

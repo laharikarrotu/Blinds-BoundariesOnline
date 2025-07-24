@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_ENDPOINTS } from '../config';
 
 interface TryOnButtonProps {
   imageId: string;
@@ -23,7 +24,7 @@ export default function TryOnButton({ imageId, blindName, color, onComplete }: T
     setResultUrl(null);
 
     try {
-      const response = await fetch('http://localhost:8000/try-on', {
+      const response = await fetch(API_ENDPOINTS.TRY_ON, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

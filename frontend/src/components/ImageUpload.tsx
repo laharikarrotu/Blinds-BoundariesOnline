@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_ENDPOINTS } from '../config';
 
 interface ImageUploadProps {
   onUpload: (imageId: string) => void;
@@ -33,7 +34,7 @@ export default function ImageUpload({ onUpload }: ImageUploadProps) {
     try {
       // Create FormData
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('file', file);
 
       // Simulate upload progress
       const progressInterval = setInterval(() => {
@@ -47,7 +48,7 @@ export default function ImageUpload({ onUpload }: ImageUploadProps) {
       }, 200);
 
       // Upload to backend
-      const response = await fetch('http://localhost:8000/upload', {
+      const response = await fetch(API_ENDPOINTS.UPLOAD_IMAGE, {
         method: 'POST',
         body: formData,
       });
