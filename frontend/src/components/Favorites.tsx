@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
+import { API_BASE_URL } from '../config';
 
 interface Favorite {
   id: string;
@@ -20,7 +21,7 @@ export const saveFavorite = async (
 ) => {
   try {
     const token = await getAccessTokenSilently();
-    const response = await fetch('http://localhost:8000/favorites', {
+    const response = await fetch(`${API_BASE_URL}/favorites`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -62,7 +63,7 @@ export default function Favorites() {
 
     try {
       const token = await getAccessTokenSilently();
-      const response = await fetch('http://localhost:8000/favorites', {
+      const response = await fetch(`${API_BASE_URL}/favorites`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -86,7 +87,7 @@ export default function Favorites() {
   const deleteFavorite = async (favoriteId: string) => {
     try {
       const token = await getAccessTokenSilently();
-      const response = await fetch(`http://localhost:8000/favorites/${favoriteId}`, {
+      const response = await fetch(`${API_BASE_URL}/favorites/${favoriteId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
