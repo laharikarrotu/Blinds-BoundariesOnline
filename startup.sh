@@ -10,6 +10,18 @@ echo "=== Checking Python ==="
 python --version
 which python
 
-echo "=== Starting FastAPI application ==="
-# Start the FastAPI app with uvicorn
-uvicorn main:application --host 0.0.0.0 --port 8000 
+echo "=== Checking for startup files ==="
+if [ -f "startup.py" ]; then
+    echo "✅ Found startup.py"
+    echo "=== Starting FastAPI application with startup.py ==="
+    python startup.py
+elif [ -f "main.py" ]; then
+    echo "✅ Found main.py"
+    echo "=== Starting FastAPI application with main.py ==="
+    python main.py
+else
+    echo "❌ No startup file found!"
+    echo "Available files:"
+    ls -la *.py
+    exit 1
+fi 

@@ -47,8 +47,9 @@ jobs:
           # Create a clean deployment directory
           mkdir -p deployment
           
-          # Copy root-level files
+          # Copy root-level files (Azure expects these in root)
           cp main.py deployment/ 2>/dev/null || echo "main.py not found in root"
+          cp startup.py deployment/ 2>/dev/null || echo "startup.py not found in root"
           cp startup.sh deployment/ 2>/dev/null || echo "startup.sh not found in root"
           cp requirements.txt deployment/ 2>/dev/null || echo "requirements.txt not found in root"
           

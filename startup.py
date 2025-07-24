@@ -40,7 +40,12 @@ try:
     
     print("Step 4: Starting uvicorn server...")
     print("Server will start on 0.0.0.0:8000")
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    
+    # For Azure App Service, we need to use the PORT environment variable
+    port = int(os.environ.get("PORT", 8000))
+    print(f"Using port: {port}")
+    
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     
 except Exception as e:
     print(f"ERROR: Failed to start application: {e}")
