@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
+// import { useAuth0 } from '@auth0/auth0-react';
 import ImageUpload from './components/ImageUpload';
 import BlindsSelector from './components/BlindsSelector';
 import TryOnButton from './components/TryOnButton';
@@ -13,7 +13,8 @@ import RoomTypeSelector from './components/RoomTypeSelector';
 import LightingEffects from './components/LightingEffects';
 
 function App() {
-  const { isAuthenticated } = useAuth0();
+  // const { isAuthenticated } = useAuth0();
+  const isAuthenticated = true; // Temporarily set to true for testing
   const [imageId, setImageId] = useState('');
   const [blindName, setBlindName] = useState('');
   const [color, setColor] = useState('#ffffff');
