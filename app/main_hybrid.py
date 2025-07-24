@@ -33,6 +33,8 @@ app.add_middleware(
         "*",  # Allow all origins for development
         "https://blinds-boundaries-online.vercel.app",
         "https://blinds-boundaries-online-*.vercel.app",  # Allow all Vercel preview URLs
+        "https://blinds-boundaries-online-qxutbjzpx-laharikarrotus-projects.vercel.app",
+        "https://blinds-boundaries-online-mqus5rn6h-laharikarrotus-projects.vercel.app",
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:3000",
