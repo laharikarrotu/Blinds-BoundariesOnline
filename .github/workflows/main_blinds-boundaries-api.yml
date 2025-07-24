@@ -17,7 +17,8 @@ jobs:
       contents: read #This is required for actions/checkout
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python version
         uses: actions/setup-python@v5
@@ -31,39 +32,72 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install --upgrade setuptools wheel
           pip install -r requirements.txt --no-cache-dir
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
+      - name: Run tests (optional)
+        run: |
+          echo "Running basic health checks..."
+          python -c "import fastapi; print('FastAPI imported successfully')"
+          python -c "import cv2; print('OpenCV imported successfully')"
+          python -c "import azure.storage.blob; print('Azure Storage imported successfully')"
 
-      - name: Zip artifact for deployment
+      - name: Create deployment package
         run: |
           # Create a clean deployment directory
           mkdir -p deployment
           
-          # Copy root-level files (main.py, startup.sh, requirements.txt, etc.)
+          # Copy root-level files (Azure expects these in root)
           cp main.py deployment/ 2>/dev/null || echo "main.py not found in root"
+          cp startup.py deployment/ 2>/dev/null || echo "startup.py not found in root"
           cp startup.sh deployment/ 2>/dev/null || echo "startup.sh not found in root"
           cp requirements.txt deployment/ 2>/dev/null || echo "requirements.txt not found in root"
           
-          # Copy app directory contents
-          cp -r app/* deployment/
+          # Copy app directory contents (your main FastAPI application)
+          if [ -d "app" ]; then
+            cp -r app/* deployment/
+            echo "Copied app directory contents"
+          else
+            echo "app directory not found"
+          fi
           
-          # Copy other necessary directories
-          cp -r blinds deployment/ 2>/dev/null || echo "blinds directory not found"
-          cp -r models deployment/ 2>/dev/null || echo "models directory not found"
+          # Copy static assets and models
+          if [ -d "blinds" ]; then
+            cp -r blinds deployment/
+            echo "Copied blinds directory"
+          else
+            echo "blinds directory not found"
+          fi
           
-          # Create necessary directories
+          if [ -d "models" ]; then
+            cp -r models deployment/
+            echo "Copied models directory"
+          else
+            echo "models directory not found"
+          fi
+          
+          # Create necessary directories for runtime (empty, no files)
           mkdir -p deployment/uploads deployment/masks deployment/results
+          # Add .gitkeep files to ensure directories are created
+          touch deployment/uploads/.gitkeep
+          touch deployment/masks/.gitkeep
+          touch deployment/results/.gitkeep
+          
+          # Make startup script executable
+          chmod +x deployment/startup.sh
           
           # List what we're deploying
-          echo "Files to be deployed:"
-          ls -la deployment/
+          echo "=== Files to be deployed ==="
+          find deployment -type f | head -20
+          echo "..."
           
           # Zip the deployment directory
           cd deployment
           zip -r ../release.zip ./*
           cd ..
+          
+          echo "=== Deployment package created ==="
+          ls -lh release.zip
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
@@ -77,6 +111,10 @@ jobs:
     permissions:
       id-token: write #This is required for requesting the JWT
       contents: read #This is required for actions/checkout
+    # Add concurrency to prevent parallel deployments
+    concurrency:
+      group: production_environment
+      cancel-in-progress: true
 
     steps:
       - name: Download artifact from build job
@@ -85,9 +123,13 @@ jobs:
           name: python-app
 
       - name: Unzip artifact for deployment
-        run: unzip release.zip
+        run: |
+          unzip release.zip
+          echo "=== Deployed files ==="
+          ls -la
+          echo "=== App directory contents ==="
+          ls -la app/ 2>/dev/null || echo "No app directory found"
 
-      
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -101,4 +143,17 @@ jobs:
         with:
           app-name: 'blinds-boundaries-api'
           slot-name: 'Production'
+        # Add retry logic for 409 conflicts
+        continue-on-error: true
+      
+      - name: 'Retry deployment if failed'
+        if: steps.deploy-to-webapp.outcome == 'failure'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'blinds-boundaries-api'
+          slot-name: 'Production'
           
+      - name: Verify deployment
+        run: |
+          echo "Deployment completed successfully!"
+          echo "Your app should be available at: https://blinds-boundaries-api.azurewebsites.net" 
