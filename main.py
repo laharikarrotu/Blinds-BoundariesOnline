@@ -29,6 +29,17 @@ try:
         import sys
         app_path = os.path.join(os.path.dirname(__file__), 'app')
         sys.path.insert(0, app_path)
+        
+        # Check if python-multipart is available
+        try:
+            import multipart
+            print("✅ python-multipart is available")
+        except ImportError:
+            print("⚠️ python-multipart not available, installing...")
+            import subprocess
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "python-multipart"])
+            print("✅ python-multipart installed")
+        
         from main_hybrid import app  # type: ignore
         print("✅ Successfully imported main_hybrid.py application")
         application = app
