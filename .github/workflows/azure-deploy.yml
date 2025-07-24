@@ -111,6 +111,10 @@ jobs:
     permissions:
       id-token: write #This is required for requesting the JWT
       contents: read #This is required for actions/checkout
+    # Add concurrency to prevent parallel deployments
+    concurrency:
+      group: production_environment
+      cancel-in-progress: true
 
     steps:
       - name: Download artifact from build job
@@ -136,6 +140,15 @@ jobs:
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
+        with:
+          app-name: 'blinds-boundaries-api'
+          slot-name: 'Production'
+        # Add retry logic for 409 conflicts
+        continue-on-error: true
+      
+      - name: 'Retry deployment if failed'
+        if: steps.deploy-to-webapp.outcome == 'failure'
+        uses: azure/webapps-deploy@v3
         with:
           app-name: 'blinds-boundaries-api'
           slot-name: 'Production'
