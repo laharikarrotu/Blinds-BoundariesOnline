@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { SpeedInsights } from "@vercel/speed-insights/react"
 // import { useAuth0 } from '@auth0/auth0-react';
 import ImageUpload from './components/ImageUpload';
 import BlindsSelector from './components/BlindsSelector';
