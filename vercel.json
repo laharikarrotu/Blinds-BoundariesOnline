@@ -9,13 +9,6 @@
       "destination": "/index.html"
     }
   ],
-  "redirects": [
-    {
-      "source": "/blinds-boundaries.vercel.app/(.*)",
-      "destination": "/$1",
-      "permanent": false
-    }
-  ],
   "headers": [
     {
       "source": "/api/(.*)",
