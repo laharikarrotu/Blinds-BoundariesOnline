@@ -218,6 +218,8 @@ def try_on(
     blind_name: str = Query(..., description="The filename of the blind texture in the blinds/ folder"),
     color: str = Query(None, description="Optional hex color to tint the blind texture (e.g., #FF0000)")
 ):
+    print(f"Try-on request: image_id={image_id}, blind_name={blind_name}, color={color}")
+    
     # Find the image file
     image_file = None
     for fname in os.listdir(UPLOAD_DIR):
@@ -225,34 +227,55 @@ def try_on(
             image_file = os.path.join(UPLOAD_DIR, fname)
             break
     if not image_file or not os.path.exists(image_file):
+        print(f"Image not found: {image_file}")
         return JSONResponse(status_code=404, content={"error": "Image not found for the given image_id."})
+    
+    print(f"Found image file: {image_file}")
     
     # Find the mask file
     mask_filename = f"mask_{image_id}.png"
     mask_path = os.path.join(MASK_DIR, mask_filename)
     if not os.path.exists(mask_path):
+        print(f"Mask not found: {mask_path}")
         return JSONResponse(status_code=404, content={"error": "Mask not found. Please run /detect-window first."})
+    
+    print(f"Found mask file: {mask_path}")
     
     # Find the blind texture
     blind_path = os.path.join(BLINDS_DIR, blind_name)
+    print(f"Looking for blind at: {blind_path}")
+    print(f"BLINDS_DIR exists: {os.path.exists(BLINDS_DIR)}")
+    if os.path.exists(BLINDS_DIR):
+        print(f"BLINDS_DIR contents: {os.listdir(BLINDS_DIR)}")
+    
     if not os.path.exists(blind_path):
         # List available blinds to help user
         try:
             available_blinds = [f for f in os.listdir(BLINDS_DIR) if f.lower().endswith((".jpg", ".jpeg", ".png"))]
+            print(f"Available blinds: {available_blinds}")
             return JSONResponse(
                 status_code=404, 
                 content={
                     "error": f"Blind texture '{blind_name}' not found in blinds/ folder.",
-                    "available_blinds": available_blinds
+                    "available_blinds": available_blinds,
+                    "searched_path": blind_path
                 }
             )
-        except Exception:
+        except Exception as e:
+            print(f"Error listing blinds: {e}")
             return JSONResponse(status_code=404, content={"error": f"Blind texture '{blind_name}' not found in blinds/ folder."})
     
+    print(f"Found blind file: {blind_path}")
+    
     # Load images
-    orig_img = Image.open(image_file).convert("RGB").resize((320, 320))
-    mask_img = Image.open(mask_path).convert("L").resize((320, 320))
-    blind_img = Image.open(blind_path).convert("RGB").resize((320, 320))
+    try:
+        orig_img = Image.open(image_file).convert("RGB").resize((320, 320))
+        mask_img = Image.open(mask_path).convert("L").resize((320, 320))
+        blind_img = Image.open(blind_path).convert("RGB").resize((320, 320))
+        print("All images loaded successfully")
+    except Exception as e:
+        print(f"Error loading images: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Failed to load images: {e}"})
     
     # Optionally tint the blind texture
     if color:
@@ -264,34 +287,47 @@ def try_on(
             return JSONResponse(status_code=400, content={"error": f"Invalid color format: {e}"})
     
     # Apply the blind texture to the window area using the mask
-    mask_np = np.array(mask_img)
-    mask_bin = (mask_np > 128).astype(np.uint8) * 255
-    mask_img_bin = Image.fromarray(mask_bin)
-    result_img = orig_img.copy()
-    
-    # Make the blinds more visible by blending with original
-    # Convert to numpy arrays for processing
-    orig_np = np.array(orig_img)
-    blind_np = np.array(blind_img)
-    mask_np_bin = np.array(mask_img_bin)
-    
-    # Create a more visible blend
-    alpha = 0.7  # Blend factor - blinds will be 70% visible
-    for i in range(3):  # RGB channels
-        result_np = orig_np[:, :, i].astype(float)
-        blind_channel = blind_np[:, :, i].astype(float)
-        mask_channel = mask_np_bin.astype(float) / 255.0
+    try:
+        mask_np = np.array(mask_img)
+        mask_bin = (mask_np > 128).astype(np.uint8) * 255
+        mask_img_bin = Image.fromarray(mask_bin)
+        result_img = orig_img.copy()
         
-        # Blend: result = original * (1 - mask * alpha) + blind * mask * alpha
-        result_np = result_np * (1 - mask_channel * alpha) + blind_channel * mask_channel * alpha
-        result_img.putdata(result_np.astype(np.uint8).flatten())
-    
-    print(f"Try-on completed. Result saved with mask area: {np.count_nonzero(mask_np_bin)} pixels")
+        # Make the blinds more visible by blending with original
+        # Convert to numpy arrays for processing
+        orig_np = np.array(orig_img)
+        blind_np = np.array(blind_img)
+        mask_np_bin = np.array(mask_img_bin)
+        
+        # Create a more visible blend
+        alpha = 0.7  # Blend factor - blinds will be 70% visible
+        result_np = orig_np.copy().astype(float)
+        
+        # Apply mask to each channel
+        for i in range(3):  # RGB channels
+            blind_channel = blind_np[:, :, i].astype(float)
+            mask_channel = mask_np_bin.astype(float) / 255.0
+            
+            # Blend: result = original * (1 - mask * alpha) + blind * mask * alpha
+            result_np[:, :, i] = result_np[:, :, i] * (1 - mask_channel * alpha) + blind_channel * mask_channel * alpha
+        
+        # Convert back to PIL Image
+        result_img = Image.fromarray(result_np.astype(np.uint8))
+        
+        print(f"Try-on completed. Result saved with mask area: {np.count_nonzero(mask_np_bin)} pixels")
+    except Exception as e:
+        print(f"Error during image processing: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Image processing failed: {e}"})
     
     # Save and upload result
-    result_filename = f"tryon_{image_id}_{os.path.splitext(blind_name)[0]}.png"
-    result_path = os.path.join(RESULTS_DIR, result_filename)
-    result_img.save(result_path)
+    try:
+        result_filename = f"tryon_{image_id}_{os.path.splitext(blind_name)[0]}.png"
+        result_path = os.path.join(RESULTS_DIR, result_filename)
+        result_img.save(result_path)
+        print(f"Result saved to: {result_path}")
+    except Exception as e:
+        print(f"Error saving result: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Failed to save result: {e}"})
     
     # Upload to Azure (optional)
     result_url = upload_to_azure_blob(result_path, result_filename)

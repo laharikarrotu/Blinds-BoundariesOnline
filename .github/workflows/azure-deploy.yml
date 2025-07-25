@@ -68,6 +68,9 @@ jobs:
           if [ -d "blinds" ]; then
             cp -r blinds deployment/
             echo "Copied blinds directory"
+          elif [ -d "app/blinds" ]; then
+            cp -r app/blinds deployment/
+            echo "Copied app/blinds directory"
           else
             echo "blinds directory not found"
           fi
