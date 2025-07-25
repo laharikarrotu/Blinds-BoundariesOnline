@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { SpeedInsights } from "@vercel/speed-insights/next"
 // import { useAuth0 } from '@auth0/auth0-react';
 import ImageUpload from './components/ImageUpload';
 import BlindsSelector from './components/BlindsSelector';
@@ -129,6 +130,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100 flex flex-col font-sans">
       <DebugInfo />
+      <SpeedInsights />
       {/* Header */}
       <header className="bg-indigo-700 text-white py-5 shadow-lg">
         <div className="container mx-auto flex items-center justify-between px-4">

@@ -90,6 +90,18 @@ def health_check():
         }
     }
 
+@app.get("/blinds-boundaries.vercel.app/{path:path}")
+def redirect_vercel_app(path: str):
+    """Redirect requests from the old Vercel domain to the root"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/", status_code=302)
+
+@app.get("/blinds-boundaries.vercel.app/")
+def redirect_vercel_app_root():
+    """Redirect root requests from the old Vercel domain"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/", status_code=302)
+
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
