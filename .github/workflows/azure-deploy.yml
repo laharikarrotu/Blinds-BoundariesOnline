@@ -41,6 +41,7 @@ jobs:
           python -c "import fastapi; print('FastAPI imported successfully')"
           python -c "import cv2; print('OpenCV imported successfully')"
           python -c "import azure.storage.blob; print('Azure Storage imported successfully')"
+          python -c "import multipart; print('python-multipart imported successfully')"
 
       - name: Create deployment package
         run: |
@@ -52,6 +53,8 @@ jobs:
           cp startup.py deployment/ 2>/dev/null || echo "startup.py not found in root"
           cp startup.sh deployment/ 2>/dev/null || echo "startup.sh not found in root"
           cp requirements.txt deployment/ 2>/dev/null || echo "requirements.txt not found in root"
+          # Copy configuration files
+          cp azure.yaml deployment/ 2>/dev/null || echo "azure.yaml not found in root"
           
           # Copy app directory contents (your main FastAPI application)
           if [ -d "app" ]; then
@@ -84,7 +87,7 @@ jobs:
           touch deployment/results/.gitkeep
           
           # Make startup script executable
-          chmod +x deployment/startup.sh
+          chmod +x deployment/startup.sh 2>/dev/null || echo "startup.sh not found"
           
           # List what we're deploying
           echo "=== Files to be deployed ==="
@@ -156,4 +159,4 @@ jobs:
       - name: Verify deployment
         run: |
           echo "Deployment completed successfully!"
-          echo "Your app should be available at: https://blinds-boundaries-api.azurewebsites.net" 
+          echo "Your app should be available at: https://blinds-boundaries-api-dbewbmh4bjdsc6ht.canadacentral-01.azurewebsites.net" 
