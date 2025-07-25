@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 // import { useAuth0 } from '@auth0/auth0-react';
 import ImageUpload from './components/ImageUpload';
 import BlindsSelector from './components/BlindsSelector';
@@ -11,6 +11,7 @@ import RealTimePreview from './components/RealTimePreview';
 import AdvancedColorPicker from './components/AdvancedColorPicker';
 import RoomTypeSelector from './components/RoomTypeSelector';
 import LightingEffects from './components/LightingEffects';
+import { API_BASE_URL } from './config';
 
 function App() {
   // const { isAuthenticated } = useAuth0();
@@ -24,6 +25,95 @@ function App() {
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
   const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(false);
   const [selectedLighting, setSelectedLighting] = useState('day');
+  const [hasError, setHasError] = useState(false);
+
+  // Add debugging to track any routing issues
+  useEffect(() => {
+    console.log('App mounted, current URL:', window.location.href);
+    console.log('Current pathname:', window.location.pathname);
+    
+    // Check if there are any unexpected requests being made
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      console.log('Fetch request:', args[0]);
+      return originalFetch.apply(this, args);
+    };
+
+    // Health check for API
+    const checkApiHealth = async () => {
+      try {
+        console.log('Checking API health...');
+        const response = await fetch(`${API_BASE_URL}/health`);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('API health check successful:', data);
+        } else {
+          console.error('API health check failed:', response.status);
+        }
+      } catch (error) {
+        console.error('API health check error:', error);
+      }
+    };
+
+    checkApiHealth();
+
+    // Monitor for any navigation or routing issues
+    const handleBeforeUnload = () => {
+      console.log('Page is about to unload');
+    };
+
+    const handleError = (event: ErrorEvent) => {
+      console.error('Global error:', event.error);
+      setHasError(true);
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      setHasError(true);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
+  // Debug component
+  const DebugInfo = () => {
+    if (import.meta.env.DEV) {
+      return (
+        <div className="debug-info">
+          <div>URL: {window.location.href}</div>
+          <div>Path: {window.location.pathname}</div>
+          <div>API: {API_BASE_URL}</div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Error boundary component
+  if (hasError) {
+    return (
+      <div className="min-h-screen bg-red-50 flex items-center justify-center">
+        <div className="text-center p-8">
+          <h1 className="text-2xl font-bold text-red-800 mb-4">Something went wrong</h1>
+          <p className="text-red-600 mb-4">We encountered an error while loading the application.</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+          >
+            Reload Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleTryOnComplete = (url: string) => {
     setResultUrl(url);
@@ -38,6 +128,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100 flex flex-col font-sans">
+      <DebugInfo />
       {/* Header */}
       <header className="bg-indigo-700 text-white py-5 shadow-lg">
         <div className="container mx-auto flex items-center justify-between px-4">

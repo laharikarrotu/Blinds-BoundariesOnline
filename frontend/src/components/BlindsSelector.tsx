@@ -13,6 +13,7 @@ export default function BlindsSelector({ onChange }: BlindsSelectorProps) {
   const [selectedColor, setSelectedColor] = useState<string>('#ffffff');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   const colors = [
     { name: 'White', value: '#ffffff' },
@@ -37,17 +38,25 @@ export default function BlindsSelector({ onChange }: BlindsSelectorProps) {
 
   const fetchBlinds = async () => {
     try {
+      console.log('Fetching blinds from:', API_ENDPOINTS.BLINDS_LIST);
       const response = await fetch(API_ENDPOINTS.BLINDS_LIST);
       if (!response.ok) {
-        throw new Error('Failed to fetch blinds');
+        throw new Error(`Failed to fetch blinds: ${response.status}`);
       }
       const data = await response.json();
-      setBlinds(data.blinds);
+      console.log('Blinds data received:', data);
+      setBlinds(data.blinds || []);
     } catch (err) {
+      console.error('Error fetching blinds:', err);
       setError('Failed to load blinds. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImageError = (blindName: string) => {
+    console.warn(`Failed to load image for blind: ${blindName}`);
+    setImageErrors(prev => new Set(prev).add(blindName));
   };
 
   if (loading) {
@@ -78,11 +87,19 @@ export default function BlindsSelector({ onChange }: BlindsSelectorProps) {
             }`}
             onClick={() => setSelectedBlind(blind)}
           >
-            <img
-              src={`${API_BASE_URL}/blinds/${blind}`}
-              alt={blind}
-              className="w-full h-20 object-cover bg-gray-100"
-            />
+            {!imageErrors.has(blind) ? (
+              <img
+                src={`${API_BASE_URL}/blinds/${blind}`}
+                alt={blind}
+                className="w-full h-20 object-cover bg-gray-100"
+                onError={() => handleImageError(blind)}
+                onLoad={() => console.log(`Successfully loaded image for: ${blind}`)}
+              />
+            ) : (
+              <div className="w-full h-20 bg-gray-200 flex items-center justify-center">
+                <span className="text-gray-500 text-xs">Image not available</span>
+              </div>
+            )}
             <p className="text-sm text-center p-2 font-medium">{blind}</p>
           </div>
         ))}
