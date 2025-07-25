@@ -30,8 +30,23 @@ try:
     except ImportError:
         print("⚠️ python-multipart not available, installing...")
         import subprocess
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "python-multipart"])
-        print("✅ python-multipart installed")
+        import os
+        try:
+            # Force install python-multipart
+            print("Installing python-multipart...")
+            result = subprocess.run([sys.executable, "-m", "pip", "install", "--force-reinstall", "python-multipart"], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                print("✅ python-multipart installed successfully")
+                print(f"Output: {result.stdout}")
+            else:
+                print(f"❌ Installation failed: {result.stderr}")
+                # Try alternative method
+                os.system(f"{sys.executable} -m pip install --force-reinstall python-multipart")
+                print("✅ python-multipart installed via os.system")
+        except Exception as e:
+            print(f"❌ All installation methods failed: {e}")
+            print("⚠️ Upload functionality may not work")
     
     print("Step 4: Importing main application...")
     # Try to import the main application from app/main_hybrid.py

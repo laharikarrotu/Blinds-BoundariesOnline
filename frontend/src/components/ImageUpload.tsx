@@ -48,6 +48,9 @@ export default function ImageUpload({ onUpload }: ImageUploadProps) {
       }, 200);
 
       // Upload to backend
+      console.log('Uploading to:', API_ENDPOINTS.UPLOAD_IMAGE);
+      console.log('File:', file.name, file.type, file.size);
+      
       const response = await fetch(API_ENDPOINTS.UPLOAD_IMAGE, {
         method: 'POST',
         body: formData,
@@ -57,7 +60,9 @@ export default function ImageUpload({ onUpload }: ImageUploadProps) {
       setUploadProgress(100);
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorText = await response.text();
+        console.error('Upload failed:', response.status, errorText);
+        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();

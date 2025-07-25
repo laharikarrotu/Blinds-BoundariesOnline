@@ -5,7 +5,15 @@ try:
     import multipart
     print("✅ python-multipart is available")
 except ImportError:
-    print("⚠️ python-multipart not available, this may cause upload issues")
+    print("⚠️ python-multipart not available, installing...")
+    import subprocess
+    import sys
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "python-multipart"])
+        print("✅ python-multipart installed")
+    except Exception as e:
+        print(f"❌ Failed to install python-multipart: {e}")
+        print("⚠️ Upload functionality may not work")
 
 from fastapi import FastAPI, File, UploadFile, Query
 import os
@@ -29,18 +37,9 @@ app = FastAPI()
 # Allow CORS for frontend development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*",  # Allow all origins for development
-        "https://blinds-boundaries-online.vercel.app",  # Main production domain
-        "https://blinds-boundaries-online-*.vercel.app",  # Allow all Vercel preview URLs
-        "https://*.vercel.app",  # Allow all Vercel domains
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173"
-    ],
+    allow_origins=["*"],  # Allow all origins for now
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -130,7 +129,12 @@ def upload_to_azure_blob(file_path: str, blob_name: str) -> str:
 @app.options("/upload-image")
 def upload_image_options():
     """Handle CORS preflight requests for upload endpoint"""
-    return {"message": "CORS preflight OK"}
+    from fastapi.responses import Response
+    response = Response()
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
 
 @app.post("/upload-image")
 def upload_image(file: UploadFile = File(...)):
