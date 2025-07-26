@@ -27,12 +27,22 @@ export default function TryOnButton({ imageId, blindName, color, onComplete }: T
       // Step 1: Detect window first
       console.log('Detecting window...');
       const detectParams = new URLSearchParams({ image_id: imageId });
+      
+      // Add timeout to the fetch request
+      const detectController = new AbortController();
+      const detectTimeout = setTimeout(() => detectController.abort(), 60000); // 60 second timeout
+      
       const detectResponse = await fetch(`${API_ENDPOINTS.DETECT_WINDOW}?${detectParams}`, {
         method: 'POST',
+        signal: detectController.signal,
       });
 
+      clearTimeout(detectTimeout);
+
       if (!detectResponse.ok) {
-        throw new Error('Window detection failed');
+        const errorText = await detectResponse.text();
+        console.error('Window detection failed:', errorText);
+        throw new Error(`Window detection failed: ${detectResponse.status} ${detectResponse.statusText}`);
       }
 
       console.log('Window detection successful, trying on blinds...');
@@ -46,20 +56,47 @@ export default function TryOnButton({ imageId, blindName, color, onComplete }: T
         params.append('color', color);
       }
       
+      // Add timeout to the try-on request
+      const tryOnController = new AbortController();
+      const tryOnTimeout = setTimeout(() => tryOnController.abort(), 120000); // 2 minute timeout for try-on
+      
+      console.log('Fetch request:', `${API_ENDPOINTS.TRY_ON}?${params}`);
+      
       const response = await fetch(`${API_ENDPOINTS.TRY_ON}?${params}`, {
         method: 'POST',
+        signal: tryOnController.signal,
       });
 
+      clearTimeout(tryOnTimeout);
+
       if (!response.ok) {
-        throw new Error('Try-on failed');
+        const errorText = await response.text();
+        console.error('Try-on failed:', errorText);
+        throw new Error(`Try-on failed: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
-      setResultUrl(result.result_url);
-      onComplete?.(result.result_url);
+      console.log('Try-on result:', result);
+      
+      if (result.result_url) {
+        setResultUrl(result.result_url);
+        onComplete?.(result.result_url);
+      } else {
+        console.warn('No result_url in response:', result);
+        setError('Try-on completed but no result URL was returned');
+      }
       
     } catch (err) {
-      setError('Failed to process try-on. Please try again.');
+      console.error('Try-on error:', err);
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          setError('Request timed out. Please try again.');
+        } else {
+          setError(`Failed to process try-on: ${err.message}`);
+        }
+      } else {
+        setError('Failed to process try-on. Please try again.');
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -101,6 +138,10 @@ export default function TryOnButton({ imageId, blindName, color, onComplete }: T
             src={resultUrl} 
             alt="Try-on result" 
             className="max-w-full rounded-lg mx-auto border shadow"
+            onError={(e) => {
+              console.error('Failed to load result image:', e);
+              setError('Failed to load result image. Please try again.');
+            }}
           />
           <div className="mt-4">
             <a
