@@ -31,7 +31,8 @@ from fastapi.staticfiles import StaticFiles
 print("=== Importing hybrid_detector ===")
 # Import the hybrid detector
 from hybrid_detector import HybridWindowDetector
-print("=== Successfully imported hybrid_detector ===")
+from blind_pattern_generator import BlindPatternGenerator
+print("=== Successfully imported hybrid_detector and blind_pattern_generator ===")
 
 app = FastAPI()
 
@@ -169,11 +170,23 @@ def redirect_vercel_app_root():
 @app.get("/blinds-list")
 def blinds_list():
     try:
-        if not os.path.exists(BLINDS_DIR):
-            return {"blinds": [], "message": "Blinds directory not found"}
+        # Get pre-made blind textures
+        texture_blinds = []
+        if os.path.exists(BLINDS_DIR):
+            texture_blinds = [f for f in os.listdir(BLINDS_DIR) if f.lower().endswith((".jpg", ".jpeg", ".png"))]
         
-        files = [f for f in os.listdir(BLINDS_DIR) if f.lower().endswith((".jpg", ".jpeg", ".png"))]
-        return {"blinds": files, "count": len(files)}
+        # Get available generated patterns
+        pattern_generator = BlindPatternGenerator()
+        generated_patterns = pattern_generator.get_available_patterns()
+        materials = pattern_generator.get_available_materials()
+        
+        return {
+            "texture_blinds": texture_blinds,
+            "generated_patterns": generated_patterns,
+            "materials": materials,
+            "texture_count": len(texture_blinds),
+            "pattern_count": len(generated_patterns)
+        }
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": f"Failed to list blinds: {e}"})
 
@@ -288,10 +301,13 @@ def detect_window(image_id: str = Query(..., description="The image_id returned 
 @app.post("/try-on")
 def try_on(
     image_id: str = Query(..., description="The image_id returned from /upload-image"),
-    blind_name: str = Query(..., description="The filename of the blind texture in the blinds/ folder"),
-    color: str = Query(None, description="Optional hex color to tint the blind texture (e.g., #FF0000)")
+    blind_name: str = Query(None, description="The filename of the blind texture in the blinds/ folder (for texture mode)"),
+    blind_type: str = Query(None, description="The type of blind pattern to generate (for generated mode)"),
+    color: str = Query(..., description="Hex color for the blinds (e.g., #FF0000)"),
+    material: str = Query("fabric", description="Material type for generated blinds (fabric, wood, metal, plastic)"),
+    mode: str = Query("texture", description="Mode: 'texture' for pre-made textures, 'generated' for custom patterns")
 ):
-    print(f"Try-on request: image_id={image_id}, blind_name={blind_name}, color={color}")
+    print(f"Try-on request: image_id={image_id}, mode={mode}, blind_name={blind_name}, blind_type={blind_type}, color={color}, material={material}")
     
     try:
         # Find the image file
@@ -315,52 +331,75 @@ def try_on(
         
         print(f"Found mask file: {mask_path}")
         
-        # Find the blind texture
-        blind_path = os.path.join(BLINDS_DIR, blind_name)
-        print(f"Looking for blind at: {blind_path}")
-        print(f"BLINDS_DIR exists: {os.path.exists(BLINDS_DIR)}")
-        if os.path.exists(BLINDS_DIR):
-            print(f"BLINDS_DIR contents: {os.listdir(BLINDS_DIR)}")
-        
-        if not os.path.exists(blind_path):
-            # List available blinds to help user
-            try:
-                available_blinds = [f for f in os.listdir(BLINDS_DIR) if f.lower().endswith((".jpg", ".jpeg", ".png"))]
-                print(f"Available blinds: {available_blinds}")
-                return JSONResponse(
-                    status_code=404, 
-                    content={
-                        "error": f"Blind texture '{blind_name}' not found in blinds/ folder.",
-                        "available_blinds": available_blinds,
-                        "searched_path": blind_path
-                    }
-                )
-            except Exception as e:
-                print(f"Error listing blinds: {e}")
-                return JSONResponse(status_code=404, content={"error": f"Blind texture '{blind_name}' not found in blinds/ folder."})
-        
-        print(f"Found blind file: {blind_path}")
-        
-        # Load images
+        # Load original image and mask
         try:
             orig_img = Image.open(image_file).convert("RGB").resize((320, 320))
             mask_img = Image.open(mask_path).convert("L").resize((320, 320))
-            blind_img = Image.open(blind_path).convert("RGB").resize((320, 320))
-            print("All images loaded successfully")
+            print("Original image and mask loaded successfully")
         except Exception as e:
             print(f"Error loading images: {e}")
             return JSONResponse(status_code=500, content={"error": f"Failed to load images: {e}"})
         
-        # Optionally tint the blind texture
-        if color:
+        # Get blind image based on mode
+        if mode == "texture":
+            # Use pre-made texture
+            if not blind_name:
+                return JSONResponse(status_code=400, content={"error": "blind_name is required for texture mode"})
+            
+            blind_path = os.path.join(BLINDS_DIR, blind_name)
+            print(f"Looking for blind texture at: {blind_path}")
+            
+            if not os.path.exists(blind_path):
+                try:
+                    available_blinds = [f for f in os.listdir(BLINDS_DIR) if f.lower().endswith((".jpg", ".jpeg", ".png"))]
+                    print(f"Available blinds: {available_blinds}")
+                    return JSONResponse(
+                        status_code=404, 
+                        content={
+                            "error": f"Blind texture '{blind_name}' not found in blinds/ folder.",
+                            "available_blinds": available_blinds,
+                            "searched_path": blind_path
+                        }
+                    )
+                except Exception as e:
+                    print(f"Error listing blinds: {e}")
+                    return JSONResponse(status_code=404, content={"error": f"Blind texture '{blind_name}' not found in blinds/ folder."})
+            
+            print(f"Found blind texture: {blind_path}")
+            blind_img = Image.open(blind_path).convert("RGB").resize((320, 320))
+            
+            # Optionally tint the blind texture
+            if color:
+                try:
+                    color_rgb = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+                    color_layer = Image.new("RGB", blind_img.size, color_rgb)
+                    blind_img = Image.blend(blind_img, color_layer, alpha=0.5)
+                    print(f"Applied color tint: {color}")
+                except Exception as e:
+                    print(f"Error applying color tint: {e}")
+                    return JSONResponse(status_code=400, content={"error": f"Invalid color format: {e}"})
+        
+        elif mode == "generated":
+            # Generate custom blind pattern
+            if not blind_type:
+                return JSONResponse(status_code=400, content={"error": "blind_type is required for generated mode"})
+            
             try:
-                color_rgb = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
-                color_layer = Image.new("RGB", blind_img.size, color_rgb)
-                blind_img = Image.blend(blind_img, color_layer, alpha=0.5)
-                print(f"Applied color tint: {color}")
+                pattern_generator = BlindPatternGenerator()
+                blind_img = pattern_generator.generate_blind_pattern(
+                    blind_type=blind_type,
+                    color=color,
+                    width=320,
+                    height=320,
+                    material=material
+                )
+                print(f"Generated blind pattern: {blind_type}, color: {color}, material: {material}")
             except Exception as e:
-                print(f"Error applying color tint: {e}")
-                return JSONResponse(status_code=400, content={"error": f"Invalid color format: {e}"})
+                print(f"Error generating blind pattern: {e}")
+                return JSONResponse(status_code=500, content={"error": f"Failed to generate blind pattern: {e}"})
+        
+        else:
+            return JSONResponse(status_code=400, content={"error": f"Invalid mode: {mode}. Use 'texture' or 'generated'"})
         
         # Apply the blind texture to the window area using the mask
         try:

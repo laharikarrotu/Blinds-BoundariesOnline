@@ -1,21 +1,38 @@
 import { useState } from 'react';
 import { API_ENDPOINTS } from '../config';
 
-interface TryOnButtonProps {
-  imageId: string;
-  blindName: string;
+interface BlindData {
+  mode: 'texture' | 'generated';
+  blindName?: string;
+  blindType?: string;
   color: string;
+  material?: string;
+}
+
+interface TryOnButtonProps {
+  imageId: string | null;
+  blindData: BlindData | null;
   onComplete?: (url: string) => void;
 }
 
-export default function TryOnButton({ imageId, blindName, color, onComplete }: TryOnButtonProps) {
+export default function TryOnButton({ imageId, blindData, onComplete }: TryOnButtonProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleTryOn = async () => {
-    if (!imageId || !blindName) {
+    if (!imageId || !blindData) {
       setError('Please upload an image and select a blind first');
+      return;
+    }
+
+    // Validate blind data based on mode
+    if (blindData.mode === 'texture' && !blindData.blindName) {
+      setError('Please select a blind texture');
+      return;
+    }
+    if (blindData.mode === 'generated' && !blindData.blindType) {
+      setError('Please select a blind type');
       return;
     }
 
@@ -50,10 +67,16 @@ export default function TryOnButton({ imageId, blindName, color, onComplete }: T
       // Step 2: Try on blinds
       const params = new URLSearchParams({
         image_id: imageId,
-        blind_name: blindName,
+        mode: blindData.mode,
+        color: blindData.color,
       });
-      if (color) {
-        params.append('color', color);
+
+      // Add mode-specific parameters
+      if (blindData.mode === 'texture') {
+        params.append('blind_name', blindData.blindName!);
+      } else {
+        params.append('blind_type', blindData.blindType!);
+        params.append('material', blindData.material || 'fabric');
       }
       
       // Add timeout to the try-on request
@@ -102,7 +125,7 @@ export default function TryOnButton({ imageId, blindName, color, onComplete }: T
     }
   };
 
-  const isDisabled = !imageId || !blindName || isProcessing;
+  const isDisabled = !imageId || !blindData || isProcessing;
 
   return (
     <div className="mt-8 text-center">

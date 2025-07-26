@@ -14,12 +14,19 @@ import RoomTypeSelector from './components/RoomTypeSelector';
 import LightingEffects from './components/LightingEffects';
 import { API_BASE_URL } from './config';
 
+interface BlindData {
+  mode: 'texture' | 'generated';
+  blindName?: string;
+  blindType?: string;
+  color: string;
+  material?: string;
+}
+
 function App() {
   // const { isAuthenticated } = useAuth0();
   const isAuthenticated = true; // Temporarily set to true for testing
-  const [imageId, setImageId] = useState('');
-  const [blindName, setBlindName] = useState('');
-  const [color, setColor] = useState('#ffffff');
+  const [imageId, setImageId] = useState<string | null>(null);
+  const [blindData, setBlindData] = useState<BlindData | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<'try-on' | 'favorites'>('try-on');
   const [selectedRoom, setSelectedRoom] = useState('');
@@ -197,7 +204,10 @@ function App() {
                   {/* Advanced Color Picker */}
                   <div className="bg-white rounded-xl shadow-lg p-8">
                     <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Advanced Color Selection</h2>
-                    <AdvancedColorPicker selectedColor={color} onColorChange={setColor} />
+                    <AdvancedColorPicker 
+                      selectedColor={blindData?.color || '#ffffff'} 
+                      onColorChange={(color) => setBlindData(prev => prev ? {...prev, color} : null)} 
+                    />
                   </div>
 
                   {/* Lighting Effects */}
@@ -214,15 +224,15 @@ function App() {
               {/* Step 2: Select Blinds */}
               <div className="bg-white rounded-xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Step 2: Choose Your Blinds</h2>
-                <BlindsSelector onChange={(b, c) => { setBlindName(b); setColor(c); }} />
+                <BlindsSelector onBlindSelect={setBlindData} />
               </div>
 
               {/* Real-time Preview */}
-              {imageId && blindName && originalImageUrl && (
+              {imageId && blindData && originalImageUrl && (
                 <RealTimePreview 
                   imageId={imageId}
-                  selectedBlind={blindName}
-                  selectedColor={color}
+                  selectedBlind={blindData.mode === 'texture' ? blindData.blindName! : blindData.blindType!}
+                  selectedColor={blindData.color}
                   originalImageUrl={originalImageUrl}
                 />
               )}
@@ -232,19 +242,18 @@ function App() {
                 <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Step 3: Try On Your Blinds</h2>
                 <TryOnButton 
                   imageId={imageId} 
-                  blindName={blindName} 
-                  color={color}
+                  blindData={blindData}
                   onComplete={handleTryOnComplete}
                 />
               </div>
 
               {/* Step 4: Share Results */}
-              {resultUrl && (
+              {resultUrl && blindData && (
                 <div className="bg-white rounded-xl shadow-lg p-8">
                   <ShareResults 
                     resultUrl={resultUrl}
-                    blindName={blindName}
-                    color={color}
+                    blindName={blindData.mode === 'texture' ? blindData.blindName! : blindData.blindType!}
+                    color={blindData.color}
                   />
                 </div>
               )}
