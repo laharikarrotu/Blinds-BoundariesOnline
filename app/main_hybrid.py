@@ -24,6 +24,7 @@ from fastapi.responses import JSONResponse
 import uuid
 from PIL import Image
 import numpy as np
+import cv2
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -70,6 +71,10 @@ load_dotenv()
 AZURE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "window-images")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")  # Optional
+
+# Azure Computer Vision credentials
+AZURE_VISION_KEY = os.getenv("AZURE_VISION_KEY")
+AZURE_VISION_ENDPOINT = os.getenv("AZURE_VISION_ENDPOINT")
 
 # Check if Azure is configured
 AZURE_AVAILABLE = AZURE_CONNECTION_STRING is not None
@@ -257,11 +262,15 @@ def detect_window(image_id: str = Query(..., description="The image_id returned 
     mask_filename = f"mask_{image_id}.png"
     mask_path = os.path.join(MASK_DIR, mask_filename)
     
-    # Run hybrid window detection (OpenCV + Gemini API)
+    # Run AI-enhanced hybrid window detection (Azure Computer Vision + Gemini API + OpenCV)
     try:
-        detector = HybridWindowDetector(gemini_api_key=GEMINI_API_KEY)
+        detector = HybridWindowDetector(
+            gemini_api_key=GEMINI_API_KEY,
+            azure_vision_key=AZURE_VISION_KEY,
+            azure_vision_endpoint=AZURE_VISION_ENDPOINT
+        )
         detector.detect_window(image_file, mask_path)
-        print(f"✅ Hybrid window detection completed")
+        print(f"✅ AI-enhanced hybrid window detection completed")
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": f"Window detection failed: {e}"})
     
@@ -360,28 +369,41 @@ def try_on(
             mask_img_bin = Image.fromarray(mask_bin)
             result_img = orig_img.copy()
             
-            # Make the blinds more visible by blending with original
+            # IMPROVED BLENDING: Make blinds look more realistic
             # Convert to numpy arrays for processing
             orig_np = np.array(orig_img)
             blind_np = np.array(blind_img)
             mask_np_bin = np.array(mask_img_bin)
             
-            # Create a more visible blend
-            alpha = 0.7  # Blend factor - blinds will be 70% visible
+            # Create realistic blind effect
             result_np = orig_np.copy().astype(float)
             
-            # Apply mask to each channel
+            # Apply realistic blending with proper mask handling
             for i in range(3):  # RGB channels
                 blind_channel = blind_np[:, :, i].astype(float)
                 mask_channel = mask_np_bin.astype(float) / 255.0
                 
-                # Blend: result = original * (1 - mask * alpha) + blind * mask * alpha
-                result_np[:, :, i] = result_np[:, :, i] * (1 - mask_channel * alpha) + blind_channel * mask_channel * alpha
+                # Enhanced blending formula for realistic blinds
+                # Use different blend factors for different areas
+                blend_factor = 0.8  # Stronger blind visibility
+                
+                # Apply blinds with realistic lighting
+                result_np[:, :, i] = (
+                    orig_np[:, :, i] * (1 - mask_channel * blend_factor) + 
+                    blind_channel * mask_channel * blend_factor
+                )
+            
+            # Add subtle shadow effect to make blinds look installed
+            shadow_mask = cv2.GaussianBlur(mask_np_bin.astype(np.float32) / 255.0, (5, 5), 0)
+            shadow_intensity = 0.1
+            
+            for i in range(3):
+                result_np[:, :, i] = result_np[:, :, i] * (1 - shadow_mask * shadow_intensity)
             
             # Convert back to PIL Image
-            result_img = Image.fromarray(result_np.astype(np.uint8))
+            result_img = Image.fromarray(np.clip(result_np, 0, 255).astype(np.uint8))
             
-            print(f"Try-on completed. Result saved with mask area: {np.count_nonzero(mask_np_bin)} pixels")
+            print(f"Enhanced try-on completed. Result saved with mask area: {np.count_nonzero(mask_np_bin)} pixels")
         except Exception as e:
             print(f"Error during image processing: {e}")
             return JSONResponse(status_code=500, content={"error": f"Image processing failed: {e}"})
