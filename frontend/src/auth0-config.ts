@@ -5,4 +5,7 @@ export const auth0Config = {
     redirect_uri: window.location.origin,
     audience: "YOUR_API_AUDIENCE", // Optional: if you have an API
   },
+  // Add these for better compatibility
+  cacheLocation: 'localstorage',
+  useRefreshTokens: true,
 }; 

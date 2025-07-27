@@ -56,7 +56,7 @@ try:
         app_path = os.path.join(os.path.dirname(__file__), 'app')
         sys.path.insert(0, app_path)
         
-        from main_hybrid import app  # type: ignore
+        from app.main_hybrid import app  # type: ignore
         print("✅ Successfully imported main_hybrid.py application")
         application = app
     except ImportError as e:

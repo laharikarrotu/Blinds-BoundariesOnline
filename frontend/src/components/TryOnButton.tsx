@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 import { API_ENDPOINTS } from '../config';
+import { databaseService } from '../services/database';
 
 interface BlindData {
   mode: 'texture' | 'generated';
@@ -16,6 +18,7 @@ interface TryOnButtonProps {
 }
 
 export default function TryOnButton({ imageId, blindData, onComplete }: TryOnButtonProps) {
+  const { isAuthenticated, user } = useAuth0();
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +107,25 @@ export default function TryOnButton({ imageId, blindData, onComplete }: TryOnBut
       if (result.result_url) {
         setResultUrl(result.result_url);
         onComplete?.(result.result_url);
+
+        // Save to history if user is authenticated
+        if (isAuthenticated && user?.sub) {
+          try {
+            await databaseService.addToHistory({
+              userId: user.sub,
+              imageId,
+              blindName: blindData.mode === 'texture' ? blindData.blindName! : blindData.blindType!,
+              blindType: blindData.blindType,
+              color: blindData.color,
+              material: blindData.material,
+              resultUrl: result.result_url
+            });
+            console.log('Saved to history successfully');
+          } catch (historyError) {
+            console.error('Failed to save to history:', historyError);
+            // Don't show error to user as this is not critical
+          }
+        }
       } else {
         console.warn('No result_url in response:', result);
         setError('Try-on completed but no result URL was returned');
@@ -166,7 +188,7 @@ export default function TryOnButton({ imageId, blindData, onComplete }: TryOnBut
               setError('Failed to load result image. Please try again.');
             }}
           />
-          <div className="mt-4">
+          <div className="mt-4 space-x-4">
             <a
               href={resultUrl}
               download="blinds-tryon-result.png"
@@ -174,6 +196,31 @@ export default function TryOnButton({ imageId, blindData, onComplete }: TryOnBut
             >
               Download Result
             </a>
+            {isAuthenticated && (
+              <button
+                onClick={async () => {
+                  if (!user?.sub) return;
+                  try {
+                    await databaseService.addFavorite({
+                      userId: user.sub,
+                      imageId: imageId!,
+                      blindName: blindData!.mode === 'texture' ? blindData!.blindName! : blindData!.blindType!,
+                      blindType: blindData!.blindType,
+                      color: blindData!.color,
+                      material: blindData!.material,
+                      resultUrl
+                    });
+                    alert('Added to favorites!');
+                  } catch (err) {
+                    console.error('Failed to add to favorites:', err);
+                    alert('Failed to add to favorites');
+                  }
+                }}
+                className="inline-block bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                ❤️ Add to Favorites
+              </button>
+            )}
           </div>
         </div>
       )}

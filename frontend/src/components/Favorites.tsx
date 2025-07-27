@@ -1,106 +1,70 @@
 import { useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { API_BASE_URL } from '../config';
-
-interface Favorite {
-  id: string;
-  image_id: string;
-  blind_name: string;
-  color: string;
-  result_url: string;
-  created_at: string;
-}
+import { databaseService, Favorite } from '../services/database';
 
 // Function to save a favorite (exported for use in other components)
 export const saveFavorite = async (
   imageId: string, 
   blindName: string, 
+  blindType: string | undefined,
   color: string, 
+  material: string | undefined,
   resultUrl: string,
-  getAccessTokenSilently: () => Promise<string>
+  userId: string
 ) => {
   try {
-    const token = await getAccessTokenSilently();
-    const response = await fetch(`${API_BASE_URL}/favorites`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        image_id: imageId,
-        blind_name: blindName,
-        color: color,
-        result_url: resultUrl,
-      }),
+    await databaseService.addFavorite({
+      userId,
+      imageId,
+      blindName,
+      blindType,
+      color,
+      material,
+      resultUrl
     });
-
-    if (!response.ok) {
-      throw new Error('Failed to save favorite');
-    }
-
     return true;
   } catch (err) {
+    console.error('Failed to save favorite:', err);
     throw new Error('Failed to save favorite');
   }
 };
 
 export default function Favorites() {
-  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { isAuthenticated, user } = useAuth0();
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user?.sub) {
       fetchFavorites();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.sub]);
 
   const fetchFavorites = async () => {
+    if (!user?.sub) return;
+    
     setLoading(true);
     setError(null);
 
     try {
-      const token = await getAccessTokenSilently();
-      const response = await fetch(`${API_BASE_URL}/favorites`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch favorites');
-      }
-
-      const data = await response.json();
-      setFavorites(data.favorites);
+      const userFavorites = await databaseService.getFavorites(user.sub);
+      setFavorites(userFavorites);
     } catch (err) {
+      console.error('Failed to fetch favorites:', err);
       setError('Failed to load favorites');
     } finally {
       setLoading(false);
     }
   };
 
-
-
   const deleteFavorite = async (favoriteId: string) => {
     try {
-      const token = await getAccessTokenSilently();
-      const response = await fetch(`${API_BASE_URL}/favorites/${favoriteId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete favorite');
-      }
-
+      await databaseService.removeFavorite(favoriteId);
       // Refresh favorites list
       fetchFavorites();
     } catch (err) {
+      console.error('Failed to delete favorite:', err);
       setError('Failed to delete favorite');
     }
   };
@@ -139,27 +103,33 @@ export default function Favorites() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {favorites.map((favorite) => (
-            <div key={favorite.id} className="border border-gray-200 rounded-lg p-4">
+            <div key={favorite.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
               <img
-                src={favorite.result_url}
+                src={favorite.resultUrl}
                 alt="Favorite result"
                 className="w-full h-48 object-cover rounded-lg mb-3"
               />
               <div className="space-y-2">
-                <p className="font-semibold">{favorite.blind_name}</p>
+                <p className="font-semibold">{favorite.blindName}</p>
+                {favorite.blindType && (
+                  <p className="text-sm text-gray-600">Type: {favorite.blindType}</p>
+                )}
+                {favorite.material && (
+                  <p className="text-sm text-gray-600">Material: {favorite.material}</p>
+                )}
                 <div className="flex items-center gap-2">
-                  <span>Color:</span>
+                  <span className="text-sm">Color:</span>
                   <div
                     className="w-6 h-6 rounded border border-gray-300"
                     style={{ backgroundColor: favorite.color }}
                   ></div>
                 </div>
                 <p className="text-sm text-gray-500">
-                  {new Date(favorite.created_at).toLocaleDateString()}
+                  {favorite.createdAt.toDate().toLocaleDateString()}
                 </p>
                 <div className="flex gap-2">
                   <a
-                    href={favorite.result_url}
+                    href={favorite.resultUrl}
                     download
                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors"
                   >

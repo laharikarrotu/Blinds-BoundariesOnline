@@ -5,6 +5,7 @@ import ImageUpload from './components/ImageUpload';
 import BlindsSelector from './components/BlindsSelector';
 import TryOnButton from './components/TryOnButton';
 import Favorites from './components/Favorites';
+import History from './components/History';
 import ShareResults from './components/ShareResults';
 import LoginButton from './components/LoginButton';
 import LogoutButton from './components/LogoutButton';
@@ -28,7 +29,7 @@ function App() {
   const [imageId, setImageId] = useState<string | null>(null);
   const [blindData, setBlindData] = useState<BlindData | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState<'try-on' | 'favorites'>('try-on');
+  const [currentStep, setCurrentStep] = useState<'try-on' | 'favorites' | 'history'>('try-on');
   const [selectedRoom, setSelectedRoom] = useState('');
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
   const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(false);
@@ -91,19 +92,7 @@ function App() {
     };
   }, []);
 
-  // Debug component
-  const DebugInfo = () => {
-    if (import.meta.env.DEV) {
-      return (
-        <div className="debug-info">
-          <div>URL: {window.location.href}</div>
-          <div>Path: {window.location.pathname}</div>
-          <div>API: {API_BASE_URL}</div>
-        </div>
-      );
-    }
-    return null;
-  };
+
 
   // Error boundary component
   if (hasError) {
@@ -136,7 +125,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100 flex flex-col font-sans">
-      <DebugInfo />
       <SpeedInsights />
       {/* Header */}
       <header className="bg-indigo-700 text-white py-5 shadow-lg">
@@ -158,6 +146,14 @@ function App() {
               }`}
             >
               Favorites
+            </button>
+            <button
+              onClick={() => setCurrentStep('history')}
+              className={`text-white hover:underline font-medium ${
+                currentStep === 'history' ? 'underline' : ''
+              }`}
+            >
+              History
             </button>
             <button
               onClick={() => setShowAdvancedFeatures(!showAdvancedFeatures)}
@@ -284,8 +280,10 @@ function App() {
               </div>
             </div>
           </>
-        ) : (
+        ) : currentStep === 'favorites' ? (
           <Favorites />
+        ) : (
+          <History />
         )}
       </main>
 

@@ -33,6 +33,37 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt --no-cache-dir
+          
+      - name: Download AI models
+        run: |
+          # Create models directory
+          mkdir -p models
+          
+          # Download SAM model (1.2GB) with timeout and retry
+          echo "Downloading SAM model..."
+          for i in {1..3}; do
+            if curl -L --max-time 300 -o models/sam_vit_l_0b3195.pth https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth; then
+              echo "✅ SAM model downloaded successfully on attempt $i"
+              break
+            else
+              echo "⚠️ SAM model download failed on attempt $i"
+              if [ $i -eq 3 ]; then
+                echo "❌ SAM model download failed after 3 attempts - continuing without SAM"
+                rm -f models/sam_vit_l_0b3195.pth
+              fi
+            fi
+          done
+          
+          # Download YOLOv8 model
+          echo "Downloading YOLOv8 model..."
+          if python -c "from ultralytics import YOLO; model = YOLO('yolov8n.pt'); print('YOLOv8 model ready')"; then
+            echo "✅ YOLOv8 model downloaded successfully"
+          else
+            echo "⚠️ YOLOv8 model download failed - continuing without YOLOv8"
+          fi
+          
+          echo "AI models download completed!"
+          ls -lh models/ 2>/dev/null || echo "No models directory found"
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
       - name: Run tests (optional)
@@ -42,6 +73,15 @@ jobs:
           python -c "import cv2; print('OpenCV imported successfully')"
           python -c "import azure.storage.blob; print('Azure Storage imported successfully')"
           python -c "import multipart; print('python-multipart imported successfully')"
+          
+          echo "Running AI-Enhanced health checks..."
+          python -c "import torch; print('PyTorch imported successfully')"
+          python -c "import segment_anything; print('SAM imported successfully')" || echo "⚠️ SAM import failed - will use fallback"
+          python -c "from ultralytics import YOLO; print('YOLOv8 imported successfully')" || echo "⚠️ YOLOv8 import failed - will use fallback"
+          python -c "import transformers; print('Transformers imported successfully')"
+          
+          echo "Testing AI-Enhanced detector initialization..."
+          python -c "from app.ai_enhanced_detector import AIEnhancedWindowDetector; print('AI-Enhanced detector imported successfully')" || echo "⚠️ AI-Enhanced detector import failed - will use hybrid fallback"
 
       - name: Create deployment package
         run: |
@@ -78,6 +118,8 @@ jobs:
           if [ -d "models" ]; then
             cp -r models deployment/
             echo "Copied models directory"
+            echo "Models included:"
+            ls -lh models/
           else
             echo "models directory not found"
           fi

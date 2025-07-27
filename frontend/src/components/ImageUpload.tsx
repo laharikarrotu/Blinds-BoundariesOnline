@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
 import { API_ENDPOINTS } from '../config';
 
 interface ImageUploadProps {
@@ -11,8 +12,8 @@ export default function ImageUpload({ onUpload }: ImageUploadProps) {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
     if (!file) return;
 
     // Validate file type
@@ -75,39 +76,96 @@ export default function ImageUpload({ onUpload }: ImageUploadProps) {
     } finally {
       setIsUploading(false);
     }
-  };
+  }, [onUpload]);
+
+  const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.bmp', '.webp']
+    },
+    maxFiles: 1,
+    disabled: isUploading
+  });
 
   return (
     <div className="p-6 border border-gray-300 rounded-lg max-w-md mx-auto mt-8 bg-white shadow">
       <h2 className="text-xl font-semibold mb-4 text-center">Upload Window Image</h2>
       
       <div className="space-y-4">
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          disabled={isUploading}
-          className="block w-full mb-4 text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
-        />
+        <div
+          {...getRootProps()}
+          className={`
+            border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200
+            ${isDragActive && !isDragReject 
+              ? 'border-blue-500 bg-blue-50' 
+              : isDragReject 
+                ? 'border-red-500 bg-red-50' 
+                : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+            }
+            ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
+          `}
+        >
+          <input {...getInputProps()} />
+          
+          <div className="space-y-2">
+            <div className="text-4xl mb-2">
+              {isDragActive && !isDragReject ? '📁' : '📸'}
+            </div>
+            
+            {isDragActive && !isDragReject ? (
+              <p className="text-blue-600 font-medium">Drop the image here...</p>
+            ) : isDragReject ? (
+              <p className="text-red-600 font-medium">Invalid file type!</p>
+            ) : (
+              <>
+                <p className="text-gray-600 font-medium">
+                  Drag & drop an image here, or click to select
+                </p>
+                <p className="text-sm text-gray-500">
+                  Supports: JPG, PNG, GIF, BMP, WebP (max 10MB)
+                </p>
+              </>
+            )}
+          </div>
+        </div>
 
         {isUploading && (
-          <div className="w-full bg-gray-200 rounded h-2 mt-4">
-            <div
-              className="bg-blue-500 h-2 rounded transition-all"
-              style={{ width: `${uploadProgress}%` }}
-            ></div>
+          <div className="space-y-2">
+            <div className="w-full bg-gray-200 rounded h-2">
+              <div
+                className="bg-blue-500 h-2 rounded transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+            <p className="text-sm text-gray-600 text-center">
+              Uploading... {uploadProgress}%
+            </p>
           </div>
         )}
 
         {uploadedImage && (
-          <div className="mt-4 p-3 bg-green-100 text-green-800 rounded text-center">
-            ✅ Uploaded! <a href={uploadedImage} target="_blank" rel="noopener noreferrer" className="underline text-blue-700">View Image</a>
+          <div className="mt-4 p-4 bg-green-100 text-green-800 rounded-lg text-center">
+            <div className="flex items-center justify-center space-x-2">
+              <span className="text-xl">✅</span>
+              <span className="font-medium">Uploaded successfully!</span>
+            </div>
+            <a 
+              href={uploadedImage} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="inline-block mt-2 text-blue-700 underline hover:text-blue-900"
+            >
+              View Image
+            </a>
           </div>
         )}
 
         {error && (
-          <div className="mt-4 p-3 bg-red-100 text-red-800 rounded text-center">
-            ❌ {error}
+          <div className="mt-4 p-4 bg-red-100 text-red-800 rounded-lg text-center">
+            <div className="flex items-center justify-center space-x-2">
+              <span className="text-xl">❌</span>
+              <span>{error}</span>
+            </div>
           </div>
         )}
       </div>

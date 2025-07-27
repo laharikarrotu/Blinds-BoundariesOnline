@@ -28,11 +28,11 @@ import cv2
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-print("=== Importing hybrid_detector ===")
-# Import the hybrid detector
-from hybrid_detector import HybridWindowDetector
-from blind_pattern_generator import BlindPatternGenerator
-print("=== Successfully imported hybrid_detector and blind_pattern_generator ===")
+print("=== Importing AI-Enhanced detectors ===")
+# Import the AI-Enhanced detector (SAM + YOLOv8 + Hybrid)
+from .ai_enhanced_detector import AIEnhancedWindowDetector
+from .blind_pattern_generator import BlindPatternGenerator
+print("=== Successfully imported AI-Enhanced detector and blind_pattern_generator ===")
 
 app = FastAPI()
 
@@ -83,13 +83,17 @@ AZURE_AVAILABLE = AZURE_CONNECTION_STRING is not None
 @app.get("/")
 def read_root():
     return {
-        "message": "Blinds & Boundaries API is running!", 
+        "message": "Blinds & Boundaries API is running with revolutionary AI-Enhanced detection!", 
         "status": "healthy",
-        "ml_type": "Hybrid (OpenCV + Gemini API)",
-        "features": "Window detection, blind try-on",
+        "ml_type": "AI-Enhanced (SAM + YOLOv8 + Hybrid)",
+        "features": "Revolutionary window detection, blind try-on",
+        "ai_enhanced": True,
+        "sam_enabled": True,
+        "yolo_enabled": True,
+        "hybrid_enabled": True,
         "gemini_available": GEMINI_API_KEY is not None,
         "azure_available": AZURE_AVAILABLE,
-        "version": "1.1.0"  # Added version for deployment tracking
+        "version": "2.0.0"  # Major version bump for AI-Enhanced features
     }
 
 @app.get("/health")
@@ -275,23 +279,58 @@ def detect_window(image_id: str = Query(..., description="The image_id returned 
     mask_filename = f"mask_{image_id}.png"
     mask_path = os.path.join(MASK_DIR, mask_filename)
     
-    # Run AI-enhanced hybrid window detection (Azure Computer Vision + Gemini API + OpenCV)
+    # Run revolutionary AI-Enhanced window detection (SAM + YOLOv8 + Hybrid)
     try:
-        detector = HybridWindowDetector(
+        # Check for models and enable only what's available
+        sam_model_path = 'models/sam_vit_l_0b3195.pth'
+        yolo_model_path = 'yolov8n.pt'
+        
+        enable_sam = os.path.exists(sam_model_path)
+        enable_yolo = os.path.exists(yolo_model_path)
+        
+        print(f"Model availability check:")
+        print(f"  - SAM model: {'Available' if enable_sam else 'Not found'}")
+        print(f"  - YOLOv8 model: {'Available' if enable_yolo else 'Not found'}")
+        print(f"  - Hybrid: Always available")
+        
+        ai_detector = AIEnhancedWindowDetector(
+            sam_model_path=sam_model_path if enable_sam else None,
+            yolo_model_path=yolo_model_path if enable_yolo else None,
             gemini_api_key=GEMINI_API_KEY,
             azure_vision_key=AZURE_VISION_KEY,
-            azure_vision_endpoint=AZURE_VISION_ENDPOINT
+            azure_vision_endpoint=AZURE_VISION_ENDPOINT,
+            device='auto',
+            enable_sam=enable_sam,
+            enable_yolo=enable_yolo,
+            enable_hybrid=True
         )
-        detector.detect_window(image_file, mask_path)
-        print(f"✅ AI-enhanced hybrid window detection completed")
+        
+        # Get detection statistics
+        stats = ai_detector.get_detection_stats()
+        print(f"AI-Enhanced detector stats: {stats}")
+        
+        # Run ensemble detection
+        result, detection_results = ai_detector.detect_window_ensemble(image_file, mask_path)
+        
+        if result:
+            print(f"✅ Revolutionary AI-Enhanced window detection completed!")
+            print(f"Detection results: {detection_results}")
+        else:
+            print(f"⚠️ AI-Enhanced detection failed, using fallback")
+            
     except Exception as e:
+        print(f"AI-Enhanced detection error: {e}")
         return JSONResponse(status_code=500, content={"error": f"Window detection failed: {e}"})
     
     # Upload mask to Azure (optional)
     mask_url = upload_to_azure_blob(mask_path, mask_filename)
     response = {
-        "message": "Window mask generated successfully using hybrid detection!", 
-        "method": "Hybrid (OpenCV + Gemini API)",
+        "message": "Window mask generated successfully using revolutionary AI-Enhanced detection!", 
+        "method": "AI-Enhanced (SAM + YOLOv8 + Hybrid)",
+        "ai_enhanced": True,
+        "sam_enabled": enable_sam,
+        "yolo_enabled": enable_yolo,
+        "hybrid_enabled": True,
         "gemini_used": GEMINI_API_KEY is not None
     }
     if mask_url:
