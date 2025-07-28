@@ -1,0 +1,116 @@
+# Simplified GitHub Actions workflow for regular updates
+# This excludes heavy AI models for faster, more reliable deployments
+
+name: Deploy Regular Updates to Azure
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'app/sam_detector.py'
+      - 'app/yolo_detector.py'
+      - 'app/ai_enhanced_detector.py'
+      - 'models/**'
+      - 'requirements.txt'
+  workflow_dispatch:
+    inputs:
+      deployment_type:
+        description: 'Deployment type'
+        required: true
+        default: 'regular'
+        type: choice
+        options:
+        - regular
+        - manual
+
+jobs:
+  deploy-regular:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.deployment_type != 'manual'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies (lightweight)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-simple.txt --no-cache-dir
+
+      - name: Run health checks
+        run: |
+          echo "Running lightweight health checks..."
+          python -c "import fastapi; print('FastAPI imported successfully')"
+          python -c "import cv2; print('OpenCV imported successfully')"
+          python -c "import azure.storage.blob; print('Azure Storage imported successfully')"
+          python -c "import google.generativeai; print('Google AI imported successfully')"
+          
+          echo "Testing core detector..."
+          python -c "from app.hybrid_detector import HybridWindowDetector; print('Hybrid detector imported successfully')"
+
+      - name: Create deployment package
+        run: |
+          mkdir -p deployment
+          
+          # Copy essential files
+          cp main.py deployment/
+          cp startup.py deployment/
+          cp requirements-simple.txt deployment/requirements.txt
+          
+          # Copy app files (excluding heavy AI models)
+          cp app/main_hybrid.py deployment/
+          cp app/hybrid_detector.py deployment/
+          cp app/blind_pattern_generator.py deployment/
+          
+          # Copy static assets
+          if [ -d "blinds" ]; then
+            cp -r blinds deployment/
+          fi
+          
+          # Create directories
+          mkdir -p deployment/uploads deployment/masks deployment/results
+          
+          # Test package
+          cd deployment
+          python -c "import main_hybrid; print('✅ Package test successful')"
+          cd ..
+          
+          # Create zip
+          cd deployment
+          zip -r ../regular-update.zip ./*
+          cd ..
+
+      - name: Deploy to Azure
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'blinds-boundaries-api'
+          slot-name: 'Production'
+          package: regular-update.zip
+
+      - name: Verify deployment
+        run: |
+          echo "✅ Regular update deployment completed!"
+          echo "🌐 App URL: https://blinds-boundaries-api-dbewbmh4bjdsc6ht.canadacentral-01.azurewebsites.net"
+          echo "📝 Note: This deployment uses Hybrid detector only (no heavy AI models)"
+
+  manual-deployment-reminder:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.deployment_type == 'manual'
+    
+    steps:
+      - name: Manual Deployment Reminder
+        run: |
+          echo "🚨 Manual Deployment Required!"
+          echo ""
+          echo "For heavy releases with AI models (SAM + YOLOv8):"
+          echo "1. Run: python deploy-manual.py"
+          echo "2. Upload manual_deployment.zip to Azure Portal"
+          echo "3. Deploy manually"
+          echo ""
+          echo "This ensures reliable deployment of heavy AI models." 

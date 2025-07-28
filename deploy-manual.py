@@ -1,123 +1,75 @@
 #!/usr/bin/env python3
 """
-Manual deployment script for Azure App Service
-This bypasses GitHub Actions and deploys directly
+Manual Azure Deployment Script
+Prepares files for manual deployment through Azure Portal
 """
 
 import os
 import zipfile
-import requests
-import json
-from pathlib import Path
+import shutil
 
-def create_deployment_package():
-    """Create a deployment package with all necessary files"""
-    print("📦 Creating deployment package...")
+def create_manual_deployment():
+    """Create files for manual Azure Portal deployment"""
+    print("📦 Creating manual deployment package...")
     
-    # Create zip file
-    with zipfile.ZipFile('deployment.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
-        added_files = set()
-        
-        # Add root-level files that Azure needs
-        root_files = ['main.py', 'startup.py', 'startup.sh', 'requirements.txt']
-        for file_name in root_files:
-            if os.path.exists(file_name):
-                zipf.write(file_name, file_name)
-                added_files.add(file_name)
-                print(f"  Added root file: {file_name}")
-            else:
-                print(f"  Warning: {file_name} not found in root")
-        
-        # Add app directory contents
-        app_dir = Path('app')
-        if app_dir.exists():
-            for file_path in app_dir.rglob('*'):
-                if file_path.is_file():
-                    # Add file to zip with relative path
-                    arcname = file_path.relative_to(app_dir)
-                    # Skip if we already added this file from root
-                    if str(arcname) not in added_files:
-                        zipf.write(file_path, arcname)
-                        print(f"  Added app file: {arcname}")
-                    else:
-                        print(f"  Skipped duplicate: {arcname}")
-        
-        # Add supporting directories (only static content, not runtime files)
-        support_dirs = ['blinds', 'models']
-        for dir_name in support_dirs:
-            dir_path = Path(dir_name)
-            if dir_path.exists():
-                for file_path in dir_path.rglob('*'):
-                    if file_path.is_file():
-                        arcname = file_path.relative_to(Path('.'))
-                        zipf.write(file_path, arcname)
-                        print(f"  Added support file: {arcname}")
-            else:
-                print(f"  Warning: {dir_name} directory not found")
-        
-        # Create empty runtime directories (don't include their contents)
-        runtime_dirs = ['uploads', 'masks', 'results']
-        for dir_name in runtime_dirs:
-            dir_path = Path(dir_name)
-            if not dir_path.exists():
-                dir_path.mkdir(parents=True, exist_ok=True)
-            # Add a .gitkeep file to ensure directory is created in deployment
-            gitkeep_file = dir_path / '.gitkeep'
-            if not gitkeep_file.exists():
-                gitkeep_file.touch()
-            zipf.write(gitkeep_file, gitkeep_file.relative_to(Path('.')))
-            print(f"  Added runtime directory: {dir_name}/")
+    # Create deployment directory
+    deployment_dir = "manual_deployment"
+    if os.path.exists(deployment_dir):
+        shutil.rmtree(deployment_dir)
+    os.makedirs(deployment_dir)
     
-    print("✅ Deployment package created: deployment.zip")
-    return 'deployment.zip'
-
-def deploy_to_azure(package_path):
-    """Deploy to Azure App Service using REST API"""
-    print("🚀 Deploying to Azure App Service...")
+    # Copy essential files
+    files_to_copy = [
+        "main.py",
+        "startup.py", 
+        "requirements.txt",
+        "azure.yaml"
+    ]
     
-    # Azure App Service deployment URL
-    app_name = "blinds-boundaries-api"
-    deployment_url = f"https://{app_name}-dbewbmh4bjdsc6ht.scm.canadacentral-01.azurewebsites.net/api/zipdeploy"
+    for file in files_to_copy:
+        if os.path.exists(file):
+            shutil.copy2(file, deployment_dir)
+            print(f"✅ Copied {file}")
     
-    # Read the deployment package
-    with open(package_path, 'rb') as f:
-        package_data = f.read()
+    # Copy app directory (flattened for Azure)
+    if os.path.exists("app"):
+        for file in os.listdir("app"):
+            if file.endswith(".py"):
+                src = os.path.join("app", file)
+                dst = os.path.join(deployment_dir, file)
+                shutil.copy2(src, dst)
+                print(f"✅ Copied app/{file}")
     
-    # Headers for deployment
-    headers = {
-        'Content-Type': 'application/zip',
-        'Content-Length': str(len(package_data))
-    }
+    # Copy blinds directory
+    if os.path.exists("blinds"):
+        blinds_dir = os.path.join(deployment_dir, "blinds")
+        shutil.copytree("blinds", blinds_dir)
+        print("✅ Copied blinds directory")
     
-    try:
-        # Make deployment request
-        response = requests.post(deployment_url, data=package_data, headers=headers)
-        
-        if response.status_code == 200:
-            print("✅ Deployment successful!")
-            print(f"🌐 Your API is available at: https://{app_name}-dbewbmh4bjdsc6ht.canadacentral-01.azurewebsites.net")
-        else:
-            print(f"❌ Deployment failed with status code: {response.status_code}")
-            print(f"Response: {response.text}")
-            
-    except Exception as e:
-        print(f"❌ Deployment error: {e}")
-
-def main():
-    print("🚀 Manual Azure App Service Deployment")
-    print("=" * 50)
+    # Create necessary directories
+    for dir_name in ["uploads", "masks", "results", "models"]:
+        os.makedirs(os.path.join(deployment_dir, dir_name), exist_ok=True)
+        print(f"✅ Created {dir_name} directory")
     
-    # Create deployment package
-    package_path = create_deployment_package()
+    # Create zip file for manual upload
+    zip_filename = "manual_deployment.zip"
+    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(deployment_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, deployment_dir)
+                zipf.write(file_path, arcname)
     
-    # Deploy to Azure
-    deploy_to_azure(package_path)
+    print(f"✅ Created manual deployment package: {zip_filename}")
+    print("\n📋 Manual Deployment Instructions:")
+    print("1. Go to Azure Portal: https://portal.azure.com")
+    print("2. Navigate to your App Service: blinds-boundaries-api")
+    print("3. Go to 'Deployment Center'")
+    print("4. Choose 'Manual deployment'")
+    print("5. Upload the file: manual_deployment.zip")
+    print("6. Deploy!")
     
-    print("\n📋 Next steps:")
-    print("1. Check Azure Portal for deployment status")
-    print("2. Test your API endpoint")
-    print("3. Check logs if there are issues")
-    print("4. Verify startup command in Azure is set to: python startup.py")
+    return zip_filename
 
 if __name__ == "__main__":
-    main() 
+    create_manual_deployment() 
