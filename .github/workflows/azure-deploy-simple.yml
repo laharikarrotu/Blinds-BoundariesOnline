@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies (lightweight)
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-simple.txt --no-cache-dir
+          pip install -r requirements.txt --no-cache-dir
 
       - name: Run health checks
         run: |
@@ -53,6 +53,9 @@ jobs:
           
           echo "Testing core detector..."
           python -c "from app.hybrid_detector import HybridWindowDetector; print('Hybrid detector imported successfully')"
+          
+          echo "Testing realistic blind generator..."
+          python -c "from app.realistic_blind_generator import RealisticBlindGenerator; print('Realistic blind generator imported successfully')"
 
       - name: Create deployment package
         run: |
@@ -61,12 +64,13 @@ jobs:
           # Copy essential files
           cp main.py deployment/
           cp startup.py deployment/
-          cp requirements-simple.txt deployment/requirements.txt
+          cp requirements.txt deployment/requirements.txt
           
           # Copy app files (excluding heavy AI models)
           cp app/main_hybrid.py deployment/
           cp app/hybrid_detector.py deployment/
           cp app/blind_pattern_generator.py deployment/
+          cp app/realistic_blind_generator.py deployment/
           
           # Copy static assets
           if [ -d "blinds" ]; then
