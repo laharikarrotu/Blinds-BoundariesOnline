@@ -298,48 +298,10 @@ def detect_window(image_id: str = Query(..., description="The image_id returned 
     mask_filename = f"mask_{image_id}.png"
     mask_path = os.path.join(MASK_DIR, mask_filename)
     
-    # Run AI-Enhanced window detection (SAM + YOLOv8 + Hybrid)
+    # Run Hybrid window detection (Azure Vision + Gemini + OpenCV)
     try:
-        if AIEnhancedWindowDetector is not None:
-            # Check for models and enable only what's available
-            sam_model_path = 'models/sam_vit_l_0b3195.pth'
-            yolo_model_path = 'yolov8n.pt'
-            
-            enable_sam = os.path.exists(sam_model_path)
-            enable_yolo = os.path.exists(yolo_model_path)
-            
-            print(f"Model availability check:")
-            print(f"  - SAM model: {'Available' if enable_sam else 'Not found'}")
-            print(f"  - YOLOv8 model: {'Available' if enable_yolo else 'Not found'}")
-            print(f"  - Hybrid: Always available")
-            
-            ai_detector = AIEnhancedWindowDetector(
-                sam_model_path=sam_model_path if enable_sam else None,
-                yolo_model_path=yolo_model_path if enable_yolo else None,
-                gemini_api_key=GEMINI_API_KEY,
-                azure_vision_key=AZURE_VISION_KEY,
-                azure_vision_endpoint=AZURE_VISION_ENDPOINT,
-                device='auto',
-                enable_sam=enable_sam,
-                enable_yolo=enable_yolo,
-                enable_hybrid=True
-            )
-            
-            # Get detection statistics
-            stats = ai_detector.get_detection_stats()
-            print(f"AI-Enhanced detector stats: {stats}")
-            
-            # Run ensemble detection
-            result, detection_results = ai_detector.detect_window_ensemble(image_file, mask_path)
-            
-            if result:
-                print(f"✅ Revolutionary AI-Enhanced window detection completed!")
-                print(f"Detection results: {detection_results}")
-            else:
-                print(f"⚠️ AI-Enhanced detection failed, using fallback")
-                result = create_simple_mask(image_file, mask_path)
-        elif HybridWindowDetector is not None:
-            print("⚠️ AI-Enhanced detector not available, using Hybrid fallback")
+        if HybridWindowDetector is not None:
+            print("🎯 Using Hybrid detector (Azure Vision + Gemini + OpenCV)")
             hybrid_detector = HybridWindowDetector(
                 gemini_api_key=GEMINI_API_KEY,
                 azure_vision_key=AZURE_VISION_KEY,
@@ -364,9 +326,8 @@ def detect_window(image_id: str = Query(..., description="The image_id returned 
     # Upload mask to Azure (optional)
     mask_url = upload_to_azure_blob(mask_path, mask_filename)
     response = {
-        "message": "Window mask generated successfully using AI-Enhanced detection!", 
-        "method": "AI-Enhanced (SAM + YOLOv8 + Hybrid)" if AIEnhancedWindowDetector else "Hybrid (Azure Vision + Gemini + OpenCV)" if HybridWindowDetector else "Simple OpenCV fallback",
-        "ai_enhanced": AIEnhancedWindowDetector is not None,
+        "message": "Window mask generated successfully using Hybrid detection!", 
+        "method": "Hybrid (Azure Vision + Gemini + OpenCV)" if HybridWindowDetector else "Simple OpenCV fallback",
         "hybrid_enabled": HybridWindowDetector is not None,
         "gemini_used": GEMINI_API_KEY is not None,
         "azure_used": AZURE_AVAILABLE
