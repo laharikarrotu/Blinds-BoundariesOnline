@@ -49,6 +49,12 @@ try:
             print("⚠️ Upload functionality may not work")
     
     print("Step 4: Importing main application...")
+    
+    # Set environment variables to handle OpenCV issues
+    os.environ['OPENCV_VIDEOIO_PRIORITY_MSMF'] = '0'
+    os.environ['OPENCV_VIDEOIO_DEBUG'] = '1'
+    os.environ['OPENCV_LOG_LEVEL'] = 'ERROR'
+    
     # Try to import the main application from main_hybrid.py (flattened structure)
     try:
         # First try direct import (flattened structure)
