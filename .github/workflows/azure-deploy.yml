@@ -34,45 +34,34 @@ jobs:
         run: |
           pip install -r requirements.txt --no-cache-dir
           
-      - name: Download AI models (with robust fallbacks)
+      - name: Download AI models (SAM + YOLOv8)
         run: |
           # Create models directory
           mkdir -p models
           
-          # Download SAM model (1.2GB) with timeout and retry - SKIP IF TOO SLOW
-          echo "Attempting to download SAM model (may take 10+ minutes)..."
-          echo "If this takes too long, the deployment will continue without SAM"
-          
-          # Set a reasonable timeout for SAM download
-          timeout 600 bash -c '
-            for i in {1..2}; do
-              echo "SAM download attempt $i..."
-              if curl -L --max-time 300 -o models/sam_vit_l_0b3195.pth https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth; then
-                echo "✅ SAM model downloaded successfully on attempt $i"
-                exit 0
-              else
-                echo "⚠️ SAM model download failed on attempt $i"
-                if [ $i -eq 2 ]; then
-                  echo "❌ SAM model download failed - continuing without SAM"
-                  rm -f models/sam_vit_l_0b3195.pth
-                  exit 0
-                fi
+          # Download SAM model (1.2GB) with timeout and retry
+          echo "Downloading SAM model (1.2GB)..."
+          for i in {1..2}; do
+            echo "SAM download attempt $i..."
+            if curl -L --max-time 300 -o models/sam_vit_l_0b3195.pth https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth; then
+              echo "✅ SAM model downloaded successfully on attempt $i"
+              break
+            else
+              echo "⚠️ SAM model download failed on attempt $i"
+              if [ $i -eq 2 ]; then
+                echo "❌ SAM model download failed - continuing without SAM"
+                rm -f models/sam_vit_l_0b3195.pth
               fi
-            done
-          ' || {
-            echo "⚠️ SAM download timed out - continuing without SAM"
-            rm -f models/sam_vit_l_0b3195.pth
-          }
+            fi
+          done
           
           # Download YOLOv8 model (much smaller, more reliable)
           echo "Downloading YOLOv8 model..."
-          timeout 300 bash -c '
-            if python -c "from ultralytics import YOLO; model = YOLO(\"yolov8n.pt\"); print(\"YOLOv8 model ready\")"; then
-              echo "✅ YOLOv8 model downloaded successfully"
-            else
-              echo "⚠️ YOLOv8 model download failed - continuing without YOLOv8"
-            fi
-          ' || echo "⚠️ YOLOv8 download timed out - continuing without YOLOv8"
+          if python -c "from ultralytics import YOLO; model = YOLO('yolov8n.pt'); print('YOLOv8 model ready')"; then
+            echo "✅ YOLOv8 model downloaded successfully"
+          else
+            echo "⚠️ YOLOv8 model download failed - continuing without YOLOv8"
+          fi
           
           echo "AI models download completed!"
           ls -lh models/ 2>/dev/null || echo "No models directory found"
@@ -86,13 +75,9 @@ jobs:
           python -c "import azure.storage.blob; print('Azure Storage imported successfully')"
           python -c "import multipart; print('python-multipart imported successfully')"
           
-          echo "Running AI-Enhanced health checks (with fallbacks)..."
-          python -c "import torch; print('PyTorch imported successfully')" || echo "⚠️ PyTorch import failed - will use fallback"
+          echo "Running AI-Enhanced health checks..."
           python -c "import segment_anything; print('SAM imported successfully')" || echo "⚠️ SAM import failed - will use fallback"
           python -c "from ultralytics import YOLO; print('YOLOv8 imported successfully')" || echo "⚠️ YOLOv8 import failed - will use fallback"
-          python -c "import transformers; print('Transformers imported successfully')" || echo "⚠️ Transformers import failed - will use fallback"
-          
-          echo "Testing core dependencies..."
           python -c "import cv2; print('OpenCV imported successfully')"
           python -c "import azure.cognitiveservices.vision.computervision; print('Azure Vision imported successfully')"
           python -c "import google.generativeai; print('Google Generative AI imported successfully')"
