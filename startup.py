@@ -12,8 +12,8 @@ try:
     
     # Try to find main_hybrid.py in different possible locations
     possible_paths = [
-        os.path.join(current_dir, 'main_hybrid.py'),  # Flattened structure
-        os.path.join(current_dir, 'app', 'main_hybrid.py'),  # Directory structure
+        os.path.join(current_dir, 'main_hybrid.py'),  # Flattened structure (deployment)
+        os.path.join(current_dir, 'app', 'main_hybrid.py'),  # Directory structure (development)
     ]
     
     main_file = None

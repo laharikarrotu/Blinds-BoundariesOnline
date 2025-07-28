@@ -7,9 +7,21 @@ import time
 from typing import Optional, Tuple, Dict, Any
 
 # Import our detectors
-from .hybrid_detector import HybridWindowDetector
-from .sam_detector import SAMWindowDetector
-from .yolo_detector import YOLOv8WindowDetector
+try:
+    from .hybrid_detector import HybridWindowDetector
+    from .sam_detector import SAMWindowDetector
+    from .yolo_detector import YOLOv8WindowDetector
+except ImportError:
+    # Fallback for deployment
+    try:
+        from hybrid_detector import HybridWindowDetector
+        from sam_detector import SAMWindowDetector
+        from yolo_detector import YOLOv8WindowDetector
+    except ImportError:
+        print("⚠️ Could not import AI detectors - will use fallback")
+        HybridWindowDetector = None
+        SAMWindowDetector = None
+        YOLOv8WindowDetector = None
 
 print("=== Successfully imported all AI detectors ===")
 

@@ -49,19 +49,26 @@ try:
             print("⚠️ Upload functionality may not work")
     
     print("Step 4: Importing main application...")
-    # Try to import the main application from app/main_hybrid.py
+    # Try to import the main application from main_hybrid.py (flattened structure)
     try:
-        # Add app directory to Python path
-        import sys
-        app_path = os.path.join(os.path.dirname(__file__), 'app')
-        sys.path.insert(0, app_path)
-        
-        from app.main_hybrid import app  # type: ignore
-        print("✅ Successfully imported main_hybrid.py application")
+        # First try direct import (flattened structure)
+        from main_hybrid import app  # type: ignore
+        print("✅ Successfully imported main_hybrid.py application (flattened)")
         application = app
     except ImportError as e:
-        print(f"⚠️  Could not import main_hybrid.py: {e}")
-        print("Creating fallback FastAPI app...")
+        print(f"⚠️  Could not import main_hybrid.py (flattened): {e}")
+        try:
+            # Try app directory import
+            import sys
+            app_path = os.path.join(os.path.dirname(__file__), 'app')
+            sys.path.insert(0, app_path)
+            
+            from app.main_hybrid import app  # type: ignore
+            print("✅ Successfully imported main_hybrid.py application (app directory)")
+            application = app
+        except ImportError as e2:
+            print(f"⚠️  Could not import main_hybrid.py: {e2}")
+            print("Creating fallback FastAPI app...")
         
         # Fallback: Create a basic FastAPI app
         app = FastAPI()

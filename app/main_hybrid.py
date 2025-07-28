@@ -30,9 +30,37 @@ from fastapi.staticfiles import StaticFiles
 
 print("=== Importing AI-Enhanced detectors ===")
 # Import the AI-Enhanced detector (SAM + YOLOv8 + Hybrid)
-from .ai_enhanced_detector import AIEnhancedWindowDetector
-from .blind_pattern_generator import BlindPatternGenerator
-print("=== Successfully imported AI-Enhanced detector and blind_pattern_generator ===")
+AIEnhancedWindowDetector = None
+BlindPatternGenerator = None
+
+try:
+    from .ai_enhanced_detector import AIEnhancedWindowDetector
+    from .blind_pattern_generator import BlindPatternGenerator
+    print("✅ Successfully imported AI-Enhanced detector (relative imports)")
+except ImportError as e:
+    print(f"⚠️ Relative import failed: {e}")
+    try:
+        from ai_enhanced_detector import AIEnhancedWindowDetector
+        from blind_pattern_generator import BlindPatternGenerator
+        print("✅ Successfully imported AI-Enhanced detector (absolute imports)")
+    except ImportError as e2:
+        print(f"⚠️ Absolute import failed: {e2}")
+        print("⚠️ Could not import AI-Enhanced detector - will use hybrid fallback")
+        # Try to import just the core components
+        try:
+            from .blind_pattern_generator import BlindPatternGenerator
+            print("✅ Successfully imported blind_pattern_generator")
+        except ImportError:
+            try:
+                from blind_pattern_generator import BlindPatternGenerator
+                print("✅ Successfully imported blind_pattern_generator (absolute)")
+            except ImportError:
+                print("⚠️ Could not import blind_pattern_generator")
+                BlindPatternGenerator = None
+
+print("=== Import status ===")
+print(f"AIEnhancedWindowDetector: {'Available' if AIEnhancedWindowDetector else 'Not available'}")
+print(f"BlindPatternGenerator: {'Available' if BlindPatternGenerator else 'Not available'}")
 
 app = FastAPI()
 
@@ -281,43 +309,57 @@ def detect_window(image_id: str = Query(..., description="The image_id returned 
     
     # Run revolutionary AI-Enhanced window detection (SAM + YOLOv8 + Hybrid)
     try:
-        # Check for models and enable only what's available
-        sam_model_path = 'models/sam_vit_l_0b3195.pth'
-        yolo_model_path = 'yolov8n.pt'
-        
-        enable_sam = os.path.exists(sam_model_path)
-        enable_yolo = os.path.exists(yolo_model_path)
-        
-        print(f"Model availability check:")
-        print(f"  - SAM model: {'Available' if enable_sam else 'Not found'}")
-        print(f"  - YOLOv8 model: {'Available' if enable_yolo else 'Not found'}")
-        print(f"  - Hybrid: Always available")
-        
-        ai_detector = AIEnhancedWindowDetector(
-            sam_model_path=sam_model_path if enable_sam else None,
-            yolo_model_path=yolo_model_path if enable_yolo else None,
-            gemini_api_key=GEMINI_API_KEY,
-            azure_vision_key=AZURE_VISION_KEY,
-            azure_vision_endpoint=AZURE_VISION_ENDPOINT,
-            device='auto',
-            enable_sam=enable_sam,
-            enable_yolo=enable_yolo,
-            enable_hybrid=True
-        )
-        
-        # Get detection statistics
-        stats = ai_detector.get_detection_stats()
-        print(f"AI-Enhanced detector stats: {stats}")
-        
-        # Run ensemble detection
-        result, detection_results = ai_detector.detect_window_ensemble(image_file, mask_path)
-        
-        if result:
-            print(f"✅ Revolutionary AI-Enhanced window detection completed!")
-            print(f"Detection results: {detection_results}")
+        # Check if AI-Enhanced detector is available
+        if AIEnhancedWindowDetector is None:
+            print("⚠️ AI-Enhanced detector not available, using hybrid fallback")
+            # Use hybrid detector directly
+            from hybrid_detector import HybridWindowDetector
+            hybrid_detector = HybridWindowDetector(
+                gemini_api_key=GEMINI_API_KEY,
+                azure_vision_key=AZURE_VISION_KEY,
+                azure_vision_endpoint=AZURE_VISION_ENDPOINT
+            )
+            result = hybrid_detector.detect_window(image_file, mask_path)
+            enable_sam = False
+            enable_yolo = False
         else:
-            print(f"⚠️ AI-Enhanced detection failed, using fallback")
+            # Check for models and enable only what's available
+            sam_model_path = 'models/sam_vit_l_0b3195.pth'
+            yolo_model_path = 'yolov8n.pt'
             
+            enable_sam = os.path.exists(sam_model_path)
+            enable_yolo = os.path.exists(yolo_model_path)
+            
+            print(f"Model availability check:")
+            print(f"  - SAM model: {'Available' if enable_sam else 'Not found'}")
+            print(f"  - YOLOv8 model: {'Available' if enable_yolo else 'Not found'}")
+            print(f"  - Hybrid: Always available")
+            
+            ai_detector = AIEnhancedWindowDetector(
+                sam_model_path=sam_model_path if enable_sam else None,
+                yolo_model_path=yolo_model_path if enable_yolo else None,
+                gemini_api_key=GEMINI_API_KEY,
+                azure_vision_key=AZURE_VISION_KEY,
+                azure_vision_endpoint=AZURE_VISION_ENDPOINT,
+                device='auto',
+                enable_sam=enable_sam,
+                enable_yolo=enable_yolo,
+                enable_hybrid=True
+            )
+            
+            # Get detection statistics
+            stats = ai_detector.get_detection_stats()
+            print(f"AI-Enhanced detector stats: {stats}")
+            
+            # Run ensemble detection
+            result, detection_results = ai_detector.detect_window_ensemble(image_file, mask_path)
+            
+            if result:
+                print(f"✅ Revolutionary AI-Enhanced window detection completed!")
+                print(f"Detection results: {detection_results}")
+            else:
+                print(f"⚠️ AI-Enhanced detection failed, using fallback")
+                
     except Exception as e:
         print(f"AI-Enhanced detection error: {e}")
         return JSONResponse(status_code=500, content={"error": f"Window detection failed: {e}"})
