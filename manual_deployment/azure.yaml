@@ -1,6 +1,0 @@
-language: python
-pythonVersion: '3.12'
-startupCommand: python startup.py
-buildCommands:
-  - pip install -r requirements.txt
-  - pip install -r app/requirements.txt 

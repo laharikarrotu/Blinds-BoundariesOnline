@@ -28,22 +28,11 @@ import cv2
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-print("=== Importing AI-Enhanced detectors (SAM + YOLOv8) ===")
-# Import AI-Enhanced detector with SAM and YOLOv8
-AIEnhancedWindowDetector = None
+print("=== Importing Realistic 3D Blind System ===")
+# Import Realistic Blind Generator and Hybrid Detector
+RealisticBlindGenerator = None
+HybridWindowDetector = None
 BlindPatternGenerator = None
-
-# Try to import AI-Enhanced detector
-try:
-    from .ai_enhanced_detector import AIEnhancedWindowDetector
-    print("✅ Successfully imported AI-Enhanced detector")
-except ImportError as e:
-    print(f"⚠️ AI-Enhanced detector import failed: {e}")
-    try:
-        from ai_enhanced_detector import AIEnhancedWindowDetector
-        print("✅ Successfully imported AI-Enhanced detector (absolute)")
-    except ImportError as e2:
-        print(f"⚠️ AI-Enhanced detector absolute import failed: {e2}")
 
 # Try to import core components as fallback
 try:
@@ -58,8 +47,20 @@ except ImportError as e:
         print(f"⚠️ Hybrid detector absolute import failed: {e2}")
 
 try:
+    from .realistic_blind_generator import RealisticBlindGenerator
+    print("✅ Successfully imported RealisticBlindGenerator")
+except ImportError as e:
+    print(f"⚠️ Realistic blind generator import failed: {e}")
+    try:
+        from realistic_blind_generator import RealisticBlindGenerator
+        print("✅ Successfully imported RealisticBlindGenerator (absolute)")
+    except ImportError as e2:
+        print(f"⚠️ Realistic blind generator absolute import failed: {e2}")
+
+# Fallback to old pattern generator
+try:
     from .blind_pattern_generator import BlindPatternGenerator
-    print("✅ Successfully imported BlindPatternGenerator")
+    print("✅ Successfully imported BlindPatternGenerator (fallback)")
 except ImportError as e:
     print(f"⚠️ Blind pattern generator import failed: {e}")
     try:
@@ -69,7 +70,7 @@ except ImportError as e:
         print(f"⚠️ Blind pattern generator absolute import failed: {e2}")
 
 print("=== Import status ===")
-print(f"AIEnhancedWindowDetector: {'Available' if AIEnhancedWindowDetector else 'Not available'}")
+print(f"RealisticBlindGenerator: {'Available' if RealisticBlindGenerator else 'Not available'}")
 print(f"HybridWindowDetector: {'Available' if HybridWindowDetector else 'Not available'}")
 print(f"BlindPatternGenerator: {'Available' if BlindPatternGenerator else 'Not available'}")
 
@@ -122,15 +123,16 @@ AZURE_AVAILABLE = AZURE_CONNECTION_STRING is not None
 @app.get("/")
 def read_root():
     return {
-        "message": "Blinds & Boundaries API is running with AI-Enhanced detection!", 
+        "message": "Blinds & Boundaries API - Realistic 3D Blinds Edition!", 
         "status": "healthy",
-        "ml_type": "AI-Enhanced (SAM + YOLOv8 + Hybrid)",
-        "features": "Revolutionary window detection, blind try-on",
-        "ai_enhanced": AIEnhancedWindowDetector is not None,
+        "ml_type": "Hybrid (Azure Vision + Gemini + OpenCV)",
+        "features": "Realistic 3D blinds with depth, shadows, and materials",
+        "realistic_blinds": RealisticBlindGenerator is not None,
         "hybrid_enabled": HybridWindowDetector is not None,
         "gemini_available": GEMINI_API_KEY is not None,
         "azure_available": AZURE_AVAILABLE,
-        "version": "2.0.0"
+        "version": "3.0.0",
+        "note": "Now featuring realistic 3D blinds with depth and shadows!"
     }
 
 @app.get("/health")
@@ -493,14 +495,57 @@ def try_on(
             result_image = Image.fromarray(result_array)
             
         else:  # generated mode
-            # Generate custom blind pattern
-            if not BlindPatternGenerator:
-                return JSONResponse(status_code=500, content={"error": "Blind pattern generator not available"})
-            
-            generator = BlindPatternGenerator()
-            result_image = generator.generate_blind_pattern(
-                original_image, mask_image, blind_type, color, material
-            )
+            # Use realistic blind generator for 3D depth effect
+            if RealisticBlindGenerator:
+                print("🎨 Using Realistic Blind Generator for 3D depth effect...")
+                generator = RealisticBlindGenerator()
+                
+                # Get image dimensions
+                width, height = original_image.size
+                
+                # Create realistic 3D blind
+                blind_type = blind_type or "horizontal"
+                realistic_blind = generator.create_realistic_blind(
+                    blind_type=blind_type,
+                    color=color,
+                    width=width,
+                    height=height,
+                    material=material,
+                    depth_factor=0.8,
+                    shadow_intensity=0.3
+                )
+                
+                # Convert to RGBA for blending
+                realistic_blind = realistic_blind.convert('RGBA')
+                original_image = original_image.convert('RGBA')
+                
+                # Create mask for realistic overlay
+                mask_array = np.array(mask_image)
+                mask_array = mask_array > 128  # Threshold to binary
+                
+                # Apply realistic blind with depth
+                result_array = np.array(original_image)
+                blind_array = np.array(realistic_blind)
+                
+                # Blend with realistic depth effect
+                alpha = 0.9  # Higher opacity for realistic effect
+                result_array[mask_array] = (
+                    alpha * blind_array[mask_array] + 
+                    (1 - alpha) * result_array[mask_array]
+                ).astype(np.uint8)
+                
+                result_image = Image.fromarray(result_array)
+                print("✅ Realistic 3D blind applied with depth and shadows")
+                
+            elif BlindPatternGenerator:
+                # Fallback to old pattern generator
+                print("🔄 Using fallback Blind Pattern Generator...")
+                generator = BlindPatternGenerator()
+                result_image = generator.generate_blind_pattern(
+                    original_image, mask_image, blind_type, color, material
+                )
+            else:
+                return JSONResponse(status_code=500, content={"error": "No blind generator available"})
         
         # Save the result
         result_filename = f"tryon_{image_id}_{blind_name or blind_type or 'custom'}.png"
