@@ -55,26 +55,19 @@ try:
     os.environ['OPENCV_VIDEOIO_DEBUG'] = '1'
     os.environ['OPENCV_LOG_LEVEL'] = 'ERROR'
     
-    # Try to import the main application from main_hybrid.py (flattened structure)
+    # Add app directory to Python path
+    app_path = os.path.join(os.path.dirname(__file__), 'app')
+    sys.path.insert(0, app_path)
+    print(f"Added {app_path} to Python path")
+    
+    # Try to import the main application
     try:
-        # First try direct import (flattened structure)
-        from main_hybrid import app  # type: ignore
-        print("✅ Successfully imported main_hybrid.py application (flattened)")
+        from main_hybrid import app
+        print("✅ Successfully imported main_hybrid.py application")
         application = app
     except ImportError as e:
-        print(f"⚠️  Could not import main_hybrid.py (flattened): {e}")
-        try:
-            # Try app directory import
-            import sys
-            app_path = os.path.join(os.path.dirname(__file__), 'app')
-            sys.path.insert(0, app_path)
-            
-            from app.main_hybrid import app  # type: ignore
-            print("✅ Successfully imported main_hybrid.py application (app directory)")
-            application = app
-        except ImportError as e2:
-            print(f"⚠️  Could not import main_hybrid.py: {e2}")
-            print("Creating fallback FastAPI app...")
+        print(f"⚠️ Could not import main_hybrid.py: {e}")
+        print("Creating fallback FastAPI app...")
         
         # Fallback: Create a basic FastAPI app
         app = FastAPI()
