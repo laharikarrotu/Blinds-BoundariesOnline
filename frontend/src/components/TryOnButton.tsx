@@ -117,10 +117,11 @@ export default function TryOnButton({ imageId, blindData, onComplete }: TryOnBut
         onComplete?.(result.result_url);
 
         // Save to history if user is authenticated
-        if (isAuthenticated && user?.sub) {
+        const userId = user?.sub;
+        if (isAuthenticated && userId) {
           try {
             await databaseService.addToHistory({
-              userId: user.sub,
+              userId: userId,
               imageId,
               blindName: blindData.mode === 'texture' ? blindData.blindName! : blindData.blindType!,
               blindType: blindData.blindType,
@@ -199,10 +200,11 @@ export default function TryOnButton({ imageId, blindData, onComplete }: TryOnBut
             {isAuthenticated && (
               <button
                 onClick={async () => {
-                  if (!user?.sub) return;
+                  const userId = user?.sub;
+                  if (!userId) return;
                   try {
                     await databaseService.addFavorite({
-                      userId: user.sub,
+                      userId: userId,
                       imageId: imageId!,
                       blindName: blindData!.mode === 'texture' ? blindData!.blindName! : blindData!.blindType!,
                       blindType: blindData!.blindType,

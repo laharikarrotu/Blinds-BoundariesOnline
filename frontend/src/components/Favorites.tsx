@@ -45,13 +45,14 @@ export default function Favorites() {
   }, [isAuthenticated, user?.sub]);
 
   const fetchFavorites = async () => {
-    if (!user?.sub) return;
+    const userId = user?.sub;
+    if (!userId) return;
     
     setLoading(true);
     setError(null);
 
     try {
-      const userFavorites = await databaseService.getFavorites(user.sub);
+      const userFavorites = await databaseService.getFavorites(userId);
       setFavorites(userFavorites);
     } catch (err) {
       console.error('Failed to fetch favorites:', err);

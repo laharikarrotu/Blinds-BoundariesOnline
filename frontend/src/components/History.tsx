@@ -18,13 +18,14 @@ export default function History() {
   }, [isAuthenticated, user?.sub]);
 
   const fetchHistory = async () => {
-    if (!user?.sub) return;
+    const userId = user?.sub;
+    if (!userId) return;
     
     setLoading(true);
     setError(null);
 
     try {
-      const userHistory = await databaseService.getHistory(user.sub, 50);
+      const userHistory = await databaseService.getHistory(userId, 50);
       setHistory(userHistory);
     } catch (err) {
       console.error('Failed to fetch history:', err);
@@ -35,11 +36,12 @@ export default function History() {
   };
 
   const clearHistory = async () => {
-    if (!user?.sub) return;
+    const userId = user?.sub;
+    if (!userId) return;
     
     if (window.confirm('Are you sure you want to clear all history? This action cannot be undone.')) {
       try {
-        await databaseService.clearHistory(user.sub);
+        await databaseService.clearHistory(userId);
         setHistory([]);
       } catch (err) {
         console.error('Failed to clear history:', err);
