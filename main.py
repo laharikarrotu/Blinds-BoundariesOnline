@@ -71,26 +71,26 @@ try:
             from main_hybrid import app
             print("✅ Successfully imported main_hybrid.py application (fallback)")
             application = app
-    except ImportError as e:
-        print(f"⚠️ Could not import main_hybrid.py: {e}")
-        print("Creating fallback FastAPI app...")
-        
-        # Fallback: Create a basic FastAPI app
-        app = FastAPI()
-        
-        @app.get("/")
-        def read_root():
-            return {
-                "message": "Blinds & Boundaries API is working!", 
-                "status": "healthy",
-                "note": "Running fallback app - main_hybrid.py not found"
-            }
-        
-        @app.get("/health")
-        def health_check():
-            return {"status": "healthy", "version": "1.0.0", "mode": "fallback"}
-        
-        application = app
+        except ImportError as e:
+            print(f"⚠️ Could not import main_hybrid.py: {e}")
+            print("Creating fallback FastAPI app...")
+            
+            # Fallback: Create a basic FastAPI app
+            app = FastAPI()
+            
+            @app.get("/")
+            def read_root():
+                return {
+                    "message": "Blinds & Boundaries API is working!", 
+                    "status": "healthy",
+                    "note": "Running fallback app - main_hybrid.py not found"
+                }
+            
+            @app.get("/health")
+            def health_check():
+                return {"status": "healthy", "version": "1.0.0", "mode": "fallback"}
+            
+            application = app
     
     print("Step 5: Starting the server...")
     # For Azure App Service, we need to use the PORT environment variable

@@ -1,0 +1,15 @@
+# This file tells the GitHub Actions extension to ignore validation warnings
+# All actions in our workflows are valid and work correctly on GitHub
+# The IDE just can't verify them from the registry
+
+# Valid actions (ignore "unable to resolve" warnings):
+# - actions/checkout@v4
+# - actions/setup-python@v5
+# - actions/upload-artifact@v4
+# - actions/download-artifact@v4
+# - azure/webapps-deploy@v3
+# - actions/github-script@v7
+# - actions/setup-node@v4
+# - pnpm/action-setup@v2
+# - codecov/codecov-action@v3
+

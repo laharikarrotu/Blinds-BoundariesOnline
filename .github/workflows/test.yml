@@ -1,3 +1,7 @@
+# NOTE: IDE warnings about "Unable to resolve action" are FALSE POSITIVES.
+# The IDE can't verify actions from GitHub's registry, but all actions are valid
+# and will work correctly when this workflow runs on GitHub.
+
 name: Run Tests
 
 on:

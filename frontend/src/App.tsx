@@ -102,8 +102,10 @@ function App() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('error', handleError);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      // Restore original fetch
+      window.fetch = originalFetch;
     };
-  }, []);
+  }, [API_BASE_URL]);
 
 
 
