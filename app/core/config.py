@@ -1,10 +1,15 @@
 """Configuration management using environment variables."""
 import os
 from typing import Optional
-from dotenv import load_dotenv
 from functools import lru_cache
 
-load_dotenv()
+# Try to load .env file, but don't fail if it doesn't exist or can't be read
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except (ImportError, PermissionError, FileNotFoundError):
+    # .env file not available or can't be read - use environment variables only
+    pass
 
 
 @lru_cache()
