@@ -138,6 +138,10 @@ masks/*
 deployment.zip
 *.zip
 
+# Internal documentation (not for public repo)
+ENHANCEMENT_GUIDE.md
+PROJECT_STATUS.md
+
 # Large model files (if you want to exclude them)
 models/*.pth
 models/*.pkl

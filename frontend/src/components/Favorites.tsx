@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
+// import { useAuth0 } from '@auth0/auth0-react'; // Disabled until Auth0 is configured
 import { databaseService, Favorite } from '../services/database';
 
 // Function to save a favorite (exported for use in other components)
@@ -30,7 +30,10 @@ export const saveFavorite = async (
 };
 
 export default function Favorites() {
-  const { isAuthenticated, user } = useAuth0();
+  // Temporarily disabled - Auth0 not configured
+  // const { isAuthenticated, user } = useAuth0();
+  const isAuthenticated = false;
+  const user = null;
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

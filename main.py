@@ -60,11 +60,17 @@ try:
     sys.path.insert(0, app_path)
     print(f"Added {app_path} to Python path")
     
-    # Try to import the main application
+    # Try to import the elite architecture application first
     try:
-        from main_hybrid import app
-        print("✅ Successfully imported main_hybrid.py application")
-        application = app
+        from app.api.main import app as elite_app
+        print("✅ Successfully imported elite architecture application")
+        application = elite_app
+    except ImportError:
+        # Fallback to old main_hybrid
+        try:
+            from main_hybrid import app
+            print("✅ Successfully imported main_hybrid.py application (fallback)")
+            application = app
     except ImportError as e:
         print(f"⚠️ Could not import main_hybrid.py: {e}")
         print("Creating fallback FastAPI app...")

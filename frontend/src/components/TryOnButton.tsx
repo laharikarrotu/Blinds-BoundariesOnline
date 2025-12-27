@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
+// import { useAuth0 } from '@auth0/auth0-react'; // Disabled until Auth0 is configured
 import { API_ENDPOINTS } from '../config';
 import { databaseService } from '../services/database';
+import { handleApiError, retryRequest } from '../utils/errorHandler';
 
 interface BlindData {
   mode: 'texture' | 'generated';
@@ -18,7 +19,10 @@ interface TryOnButtonProps {
 }
 
 export default function TryOnButton({ imageId, blindData, onComplete }: TryOnButtonProps) {
-  const { isAuthenticated, user } = useAuth0();
+  // Temporarily disabled - Auth0 not configured
+  // const { isAuthenticated, user } = useAuth0();
+  const isAuthenticated = false; // Disable auth features for now
+  const user = null;
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,37 +48,38 @@ export default function TryOnButton({ imageId, blindData, onComplete }: TryOnBut
     setResultUrl(null);
 
     try {
-      // Step 1: Detect window first
-      console.log('Detecting window...');
+      // Step 1: Detect window first (with retry)
       const detectParams = new URLSearchParams({ image_id: imageId });
       
-      // Add timeout to the fetch request
-      const detectController = new AbortController();
-      const detectTimeout = setTimeout(() => detectController.abort(), 60000); // 60 second timeout
-      
-      const detectResponse = await fetch(`${API_ENDPOINTS.DETECT_WINDOW}?${detectParams}`, {
-        method: 'POST',
-        signal: detectController.signal,
+      await retryRequest(async () => {
+        const detectController = new AbortController();
+        const detectTimeout = setTimeout(() => detectController.abort(), 60000);
+        
+        try {
+          const detectResponse = await fetch(`${API_ENDPOINTS.DETECT_WINDOW}?${detectParams}`, {
+            method: 'POST',
+            signal: detectController.signal,
+          });
+          
+          clearTimeout(detectTimeout);
+          
+          if (!detectResponse.ok) {
+            const errorText = await detectResponse.text();
+            throw new Error(`Window detection failed: ${detectResponse.status} ${errorText}`);
+          }
+        } catch (err) {
+          clearTimeout(detectTimeout);
+          throw err;
+        }
       });
-
-      clearTimeout(detectTimeout);
-
-      if (!detectResponse.ok) {
-        const errorText = await detectResponse.text();
-        console.error('Window detection failed:', errorText);
-        throw new Error(`Window detection failed: ${detectResponse.status} ${detectResponse.statusText}`);
-      }
-
-      console.log('Window detection successful, trying on blinds...');
       
-      // Step 2: Try on blinds
+      // Step 2: Try on blinds (with retry)
       const params = new URLSearchParams({
         image_id: imageId,
         mode: blindData.mode,
         color: blindData.color,
       });
 
-      // Add mode-specific parameters
       if (blindData.mode === 'texture') {
         params.append('blind_name', blindData.blindName!);
       } else {
@@ -82,26 +87,29 @@ export default function TryOnButton({ imageId, blindData, onComplete }: TryOnBut
         params.append('material', blindData.material || 'fabric');
       }
       
-      // Add timeout to the try-on request
-      const tryOnController = new AbortController();
-      const tryOnTimeout = setTimeout(() => tryOnController.abort(), 120000); // 2 minute timeout for try-on
-      
-      console.log('Fetch request:', `${API_ENDPOINTS.TRY_ON}?${params}`);
-      
-      const response = await fetch(`${API_ENDPOINTS.TRY_ON}?${params}`, {
-        method: 'POST',
-        signal: tryOnController.signal,
+      const result = await retryRequest(async () => {
+        const tryOnController = new AbortController();
+        const tryOnTimeout = setTimeout(() => tryOnController.abort(), 120000);
+        
+        try {
+          const response = await fetch(`${API_ENDPOINTS.TRY_ON}?${params}`, {
+            method: 'POST',
+            signal: tryOnController.signal,
+          });
+          
+          clearTimeout(tryOnTimeout);
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Try-on failed: ${response.status} ${errorText}`);
+          }
+          
+          return response.json();
+        } catch (err) {
+          clearTimeout(tryOnTimeout);
+          throw err;
+        }
       });
-
-      clearTimeout(tryOnTimeout);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Try-on failed:', errorText);
-        throw new Error(`Try-on failed: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
       console.log('Try-on result:', result);
       
       if (result.result_url) {
@@ -133,15 +141,7 @@ export default function TryOnButton({ imageId, blindData, onComplete }: TryOnBut
       
     } catch (err) {
       console.error('Try-on error:', err);
-      if (err instanceof Error) {
-        if (err.name === 'AbortError') {
-          setError('Request timed out. Please try again.');
-        } else {
-          setError(`Failed to process try-on: ${err.message}`);
-        }
-      } else {
-        setError('Failed to process try-on. Please try again.');
-      }
+      setError(handleApiError(err));
     } finally {
       setIsProcessing(false);
     }

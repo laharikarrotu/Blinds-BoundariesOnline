@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { SpeedInsights } from "@vercel/speed-insights/react"
-// import { useAuth0 } from '@auth0/auth0-react';
+// import { useAuth0 } from '@auth0/auth0-react'; // Disabled until Auth0 is configured
 import ImageUpload from './components/ImageUpload';
 import BlindsSelector from './components/BlindsSelector';
 import TryOnButton from './components/TryOnButton';
@@ -24,8 +24,10 @@ interface BlindData {
 }
 
 function App() {
-  // const { isAuthenticated } = useAuth0();
-  const isAuthenticated = true; // Temporarily set to true for testing
+  // Temporarily disable Auth0 until properly configured
+  // const { isAuthenticated, isLoading } = useAuth0();
+  const isAuthenticated = true; // Allow access without login for now
+  const isLoading = false; // Not loading since Auth0 is disabled
   const [imageId, setImageId] = useState<string | null>(null);
   const [blindData, setBlindData] = useState<BlindData | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
@@ -35,6 +37,17 @@ function App() {
   const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(false);
   const [selectedLighting, setSelectedLighting] = useState('day');
   const [hasError, setHasError] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Add debugging to track any routing issues
   useEffect(() => {

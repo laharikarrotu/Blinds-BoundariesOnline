@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_ENDPOINTS } from '../config';
+import { API_ENDPOINTS, API_BASE_URL } from '../config';
 
 interface BlindsSelectorProps {
   onBlindSelect: (blindData: BlindData) => void;
@@ -154,7 +154,7 @@ export default function BlindsSelector({ onBlindSelect }: BlindsSelectorProps) {
                 }`}
               >
                 <img
-                  src={`${API_ENDPOINTS.BLINDS_LIST.replace('/blinds-list', '/blinds')}/${blind}`}
+                  src={`${API_BASE_URL}/blinds/${blind}`}
                   alt={blind}
                   className="w-full h-24 object-cover rounded-t-lg"
                   onLoad={() => handleImageLoad(blind)}

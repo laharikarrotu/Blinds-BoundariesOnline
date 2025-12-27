@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { API_ENDPOINTS } from '../config';
+import { handleApiError, retryRequest } from '../utils/errorHandler';
 
 interface ImageUploadProps {
   onUpload: (imageId: string, imageUrl?: string) => void;
@@ -48,31 +49,30 @@ export default function ImageUpload({ onUpload }: ImageUploadProps) {
         });
       }, 200);
 
-      // Upload to backend
-      console.log('Uploading to:', API_ENDPOINTS.UPLOAD_IMAGE);
-      console.log('File:', file.name, file.type, file.size);
-      
-      const response = await fetch(API_ENDPOINTS.UPLOAD_IMAGE, {
-        method: 'POST',
-        body: formData,
+      // Upload to backend with retry logic
+      const result = await retryRequest(async () => {
+        const response = await fetch(API_ENDPOINTS.UPLOAD_IMAGE, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+        }
+
+        return response.json();
       });
 
       clearInterval(progressInterval);
       setUploadProgress(100);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Upload failed:', response.status, errorText);
-        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
       const imageUrl = URL.createObjectURL(file);
       setUploadedImage(imageUrl);
       onUpload(result.image_id, imageUrl);
       
     } catch (err) {
-      setError('Failed to upload image. Please try again.');
+      setError(handleApiError(err));
     } finally {
       setIsUploading(false);
     }

@@ -193,20 +193,25 @@ def blinds_list():
     """Get list of available blind textures"""
     try:
         if not os.path.exists(BLINDS_DIR):
-            return {"blinds": [], "message": "Blinds directory not found"}
+            return {
+                "texture_blinds": [],
+                "generated_patterns": ["horizontal", "vertical", "roller", "roman"],
+                "materials": ["fabric", "wood", "metal", "plastic"],
+                "texture_count": 0,
+                "pattern_count": 4
+            }
         
-        blind_files = []
+        texture_blinds = []
         for filename in os.listdir(BLINDS_DIR):
             if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                blind_files.append({
-                    "name": filename,
-                    "url": f"/blinds/{filename}"
-                })
+                texture_blinds.append(filename)
         
         return {
-            "blinds": blind_files,
-            "count": len(blind_files),
-            "directory": BLINDS_DIR
+            "texture_blinds": texture_blinds,
+            "generated_patterns": ["horizontal", "vertical", "roller", "roman"],
+            "materials": ["fabric", "wood", "metal", "plastic"],
+            "texture_count": len(texture_blinds),
+            "pattern_count": 4
         }
     except Exception as e:
         return {"error": f"Could not list blinds: {e}"}
@@ -398,6 +403,12 @@ def try_on(
         original_image = Image.open(image_file)
         mask_image = Image.open(mask_file).convert('L')
         
+        # CRITICAL: Resize mask to match image dimensions immediately
+        if mask_image.size != original_image.size:
+            print(f"Resizing mask from {mask_image.size} to {original_image.size}")
+            mask_image = mask_image.resize(original_image.size, Image.LANCZOS)
+        
+        print(f"Original image size: {original_image.size}, Mask size: {mask_image.size}")
         print("Original image and mask loaded successfully")
         
         if mode == "texture":
@@ -438,6 +449,11 @@ def try_on(
             result_image = result_image.convert('RGBA')
             blind_texture = blind_texture.convert('RGBA')
             
+            # Mask is already resized above, but double-check dimensions
+            if mask_image.size != original_image.size:
+                print(f"⚠️ Mask size mismatch, resizing: {mask_image.size} -> {original_image.size}")
+                mask_image = mask_image.resize(original_image.size, Image.LANCZOS)
+            
             # Create a mask for the blind texture
             mask_array = np.array(mask_image)
             mask_array = mask_array > 128  # Threshold to binary
@@ -445,6 +461,14 @@ def try_on(
             # Apply blind texture only to masked areas
             result_array = np.array(result_image)
             blind_array = np.array(blind_texture)
+            
+            # Verify dimensions match
+            if mask_array.shape[:2] != result_array.shape[:2]:
+                print(f"⚠️ Dimension mismatch: mask={mask_array.shape}, image={result_array.shape}")
+                # Force resize mask to match image exactly
+                mask_pil = Image.fromarray(mask_array.astype(np.uint8) * 255)
+                mask_pil = mask_pil.resize((result_array.shape[1], result_array.shape[0]), Image.LANCZOS)
+                mask_array = np.array(mask_pil) > 128
             
             # Blend the blind texture with the original image in masked areas
             alpha = 0.8  # Transparency factor
@@ -480,6 +504,11 @@ def try_on(
                 realistic_blind = realistic_blind.convert('RGBA')
                 original_image = original_image.convert('RGBA')
                 
+                # Mask is already resized above, but double-check dimensions
+                if mask_image.size != original_image.size:
+                    print(f"⚠️ Mask size mismatch, resizing: {mask_image.size} -> {original_image.size}")
+                    mask_image = mask_image.resize(original_image.size, Image.LANCZOS)
+                
                 # Create mask for realistic overlay
                 mask_array = np.array(mask_image)
                 mask_array = mask_array > 128  # Threshold to binary
@@ -487,6 +516,14 @@ def try_on(
                 # Apply realistic blind with depth
                 result_array = np.array(original_image)
                 blind_array = np.array(realistic_blind)
+                
+                # Verify dimensions match
+                if mask_array.shape[:2] != result_array.shape[:2]:
+                    print(f"⚠️ Dimension mismatch: mask={mask_array.shape}, image={result_array.shape}")
+                    # Force resize mask to match image exactly
+                    mask_pil = Image.fromarray(mask_array.astype(np.uint8) * 255)
+                    mask_pil = mask_pil.resize((result_array.shape[1], result_array.shape[0]), Image.LANCZOS)
+                    mask_array = np.array(mask_pil) > 128
                 
                 # Blend with realistic depth effect
                 alpha = 0.9  # Higher opacity for realistic effect
