@@ -139,8 +139,7 @@ deployment.zip
 *.zip
 
 # Internal documentation (not for public repo)
-ENHANCEMENT_GUIDE.md
-PROJECT_STATUS.md
+docs/
 
 # Large model files (if you want to exclude them)
 models/*.pth
