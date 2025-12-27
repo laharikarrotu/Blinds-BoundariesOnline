@@ -107,6 +107,8 @@ jobs:
           app-name: 'blinds-boundaries-api'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_CCC4DB30401C446B8B09CE2F2265AE23 }}
+          startup-command: 'python main.py'
+          configuration-file: 'azure.yaml'
           
   cleanup:
     runs-on: ubuntu-latest
