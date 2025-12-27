@@ -121,26 +121,32 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const { data: artifacts } = await github.rest.actions.listArtifactsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100
-            });
-            
-            const oldArtifacts = artifacts.filter(artifact => 
-              artifact.name === 'python-app' && 
-              new Date(artifact.created_at) < new Date(Date.now() - 24 * 60 * 60 * 1000) // Older than 24 hours
-            );
-            
-            for (const artifact of oldArtifacts) {
-              try {
-                await github.rest.actions.deleteArtifact({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  artifact_id: artifact.id
-                });
-                console.log(`Deleted old artifact: ${artifact.name} (${artifact.id})`);
-              } catch (error) {
-                console.log(`Failed to delete artifact ${artifact.id}: ${error.message}`);
+            try {
+              const { data } = await github.rest.actions.listArtifactsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 100
+              });
+              
+              const artifacts = Array.isArray(data) ? data : (data.artifacts || []);
+              
+              const oldArtifacts = artifacts.filter(artifact => 
+                artifact.name === 'python-app' && 
+                new Date(artifact.created_at) < new Date(Date.now() - 24 * 60 * 60 * 1000) // Older than 24 hours
+              );
+              
+              for (const artifact of oldArtifacts) {
+                try {
+                  await github.rest.actions.deleteArtifact({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    artifact_id: artifact.id
+                  });
+                  console.log(`Deleted old artifact: ${artifact.name} (${artifact.id})`);
+                } catch (error) {
+                  console.log(`Failed to delete artifact ${artifact.id}: ${error.message}`);
+                }
               }
+            } catch (error) {
+              console.log(`Cleanup skipped: ${error.message}`);
             } 

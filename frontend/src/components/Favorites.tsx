@@ -33,7 +33,7 @@ export default function Favorites() {
   // Temporarily disabled - Auth0 not configured
   // const { isAuthenticated, user } = useAuth0();
   const isAuthenticated = false;
-  const user = null;
+  const user: { sub?: string } | null = null;
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

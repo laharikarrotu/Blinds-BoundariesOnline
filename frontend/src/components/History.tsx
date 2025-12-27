@@ -6,7 +6,7 @@ export default function History() {
   // Temporarily disabled - Auth0 not configured
   // const { isAuthenticated, user } = useAuth0();
   const isAuthenticated = false;
-  const user = null;
+  const user: { sub?: string } | null = null;
   const [history, setHistory] = useState<History[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

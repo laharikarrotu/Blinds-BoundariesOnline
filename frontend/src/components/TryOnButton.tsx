@@ -22,7 +22,7 @@ export default function TryOnButton({ imageId, blindData, onComplete }: TryOnBut
   // Temporarily disabled - Auth0 not configured
   // const { isAuthenticated, user } = useAuth0();
   const isAuthenticated = false; // Disable auth features for now
-  const user = null;
+  const user: { sub?: string } | null = null;
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
