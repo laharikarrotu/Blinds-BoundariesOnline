@@ -6,16 +6,18 @@ export default function History() {
   // Temporarily disabled - Auth0 not configured
   // const { isAuthenticated, user } = useAuth0();
   const isAuthenticated = false;
-  const user: { sub?: string } | null = null;
+  const user: { sub?: string } | null = null as { sub?: string } | null;
   const [history, setHistory] = useState<History[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated && user?.sub) {
+    const userId = user?.sub;
+    if (isAuthenticated && userId) {
       fetchHistory();
     }
-  }, [isAuthenticated, user?.sub]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user]);
 
   const fetchHistory = async () => {
     const userId = user?.sub;
