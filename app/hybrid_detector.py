@@ -515,13 +515,35 @@ class HybridWindowDetector:
         # Try Gemini API second (AI)
         if self.gemini_available:
             print("  2. Azure Computer Vision didn't find window - trying Gemini API (AI)...")
-            gemini_result, gemini_status = self.detect_windows_gemini(image_path, mask_save_path)
-            
-            if gemini_result:
-                print("  ✅ Gemini found window - using AI result")
-                return gemini_result
-            else:
-                print(f"  ⚠️ Gemini failed: {gemini_status}")
+            try:
+                gemini_result, gemini_status, gemini_error = self.detect_windows_gemini(image_path, mask_save_path)
+                
+                if gemini_result:
+                    print("  ✅ Gemini found window - using AI result")
+                    return gemini_result
+                else:
+                    print(f"  ⚠️ Gemini failed: {gemini_status}")
+            except ValueError:
+                # Handle old return format (2 values) for backward compatibility
+                try:
+                    gemini_result, gemini_status = self.detect_windows_gemini(image_path, mask_save_path)
+                    if gemini_result:
+                        print("  ✅ Gemini found window - using AI result")
+                        return gemini_result
+                    else:
+                        print(f"  ⚠️ Gemini failed: {gemini_status}")
+                except Exception as e:
+                    error_msg = str(e)
+                    if 'libGL' in error_msg or 'libGL.so' in error_msg:
+                        print(f"  ⚠️ Gemini error (libGL): {error_msg}")
+                    else:
+                        print(f"  ⚠️ Gemini error: {error_msg}")
+            except Exception as e:
+                error_msg = str(e)
+                if 'libGL' in error_msg or 'libGL.so' in error_msg:
+                    print(f"  ⚠️ Gemini error (libGL): {error_msg}")
+                else:
+                    print(f"  ⚠️ Gemini error: {error_msg}")
         
         # Try enhanced OpenCV as fallback (FREE)
         if cv2 is not None:
