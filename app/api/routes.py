@@ -195,8 +195,9 @@ async def try_on(
     except AppException as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
-        logger.exception("Try-on failed")
-        raise HTTPException(status_code=500, detail=f"Try-on failed: {str(e)}")
+        error_msg = str(e) if str(e) else repr(e) or "Unknown error"
+        logger.exception(f"Try-on failed: {error_msg}")
+        raise HTTPException(status_code=500, detail=f"Try-on failed: {error_msg}")
 
 
 @router.get("/blinds-list")

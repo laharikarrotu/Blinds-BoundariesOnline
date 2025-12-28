@@ -1,4 +1,5 @@
 """Service for blind overlay operations."""
+import os
 import numpy as np
 from PIL import Image
 from pathlib import Path
@@ -123,8 +124,9 @@ class BlindOverlayService:
             return result_url
             
         except Exception as e:
-            logger.exception(f"Blind overlay failed for {image_id}")
-            raise BlindOverlayError(f"Blind overlay failed: {str(e)}")
+            error_msg = str(e) if str(e) else repr(e) or "Unknown error"
+            logger.exception(f"Blind overlay failed for {image_id}: {error_msg}")
+            raise BlindOverlayError(f"Blind overlay failed: {error_msg}")
     
     def _apply_overlay_optimized(
         self,
