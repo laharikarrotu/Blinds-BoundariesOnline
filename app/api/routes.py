@@ -18,27 +18,30 @@ router = APIRouter()
 
 # Initialize services with error handling
 # If services fail to initialize, we'll still register routes but they'll fail gracefully
+image_repo = None
+storage_repo = None
+detection_service = None
+overlay_service = None
+
 try:
     image_repo = ImageRepository()
     storage_repo = StorageRepository()
+except Exception as e:
+    logger.error(f"Failed to initialize repositories: {e}")
+    import traceback
+    traceback.print_exc()
+
+try:
     detection_service = WindowDetectionService()
+except Exception as e:
+    logger.warning(f"Detection service not available: {e}")
+    detection_service = None
+
+try:
     overlay_service = BlindOverlayService()
 except Exception as e:
-    logger.error(f"Failed to initialize some services: {e}")
-    # Initialize basic services that should always work
-    image_repo = ImageRepository()
-    storage_repo = StorageRepository()
-    # Try to initialize detection and overlay services, but allow them to be None
-    try:
-        detection_service = WindowDetectionService()
-    except Exception:
-        detection_service = None
-        logger.warning("Detection service not available")
-    try:
-        overlay_service = BlindOverlayService()
-    except Exception:
-        overlay_service = None
-        logger.warning("Overlay service not available")
+    logger.warning(f"Overlay service not available: {e}")
+    overlay_service = None
 
 
 @router.get("/health")
@@ -80,7 +83,7 @@ async def upload_image(file: UploadFile = File(...)):
         
         # Upload to Azure if available
         azure_url = None
-        if storage_repo.is_available():
+        if storage_repo and storage_repo.is_available():
             image_data = image_repo.get_image_data(image_id)
             blob_name = f"uploads/{image_id}{Path(file.filename).suffix}"
             azure_url = storage_repo.upload_file(image_data.file_path, blob_name)
@@ -108,6 +111,8 @@ async def detect_window(image_id: str = Query(..., description="Image ID from up
         raise HTTPException(status_code=503, detail="Detection service not available")
     try:
         # Get image data
+        if not image_repo:
+            raise HTTPException(status_code=503, detail="Image repository not available")
         image_data = image_repo.get_image_data(image_id)
         
         # Detect window
@@ -165,7 +170,7 @@ async def try_on(
         else:
             # Local path, check if Azure URL exists
             result_filename = Path(result_path).name
-            if storage_repo.is_available():
+            if storage_repo and storage_repo.is_available():
                 azure_url = storage_repo.get_file_url(f"results/{result_filename}")
                 result_url = azure_url if azure_url else f"/results/{result_filename}"
             else:
