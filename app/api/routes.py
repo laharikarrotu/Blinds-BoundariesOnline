@@ -199,8 +199,16 @@ async def try_on(
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         error_msg = str(e) if str(e) else repr(e) or "Unknown error"
+        # Enhanced error logging for debugging
+        import traceback
+        full_traceback = traceback.format_exc()
         logger.exception(f"Try-on failed: {error_msg}")
-        raise HTTPException(status_code=500, detail=f"Try-on failed: {error_msg}")
+        logger.error(f"Full traceback: {full_traceback}")
+        # Include more details in response for debugging (remove in production)
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Try-on failed: {error_msg}. Check logs for details."
+        )
 
 
 @router.get("/blinds-list")
