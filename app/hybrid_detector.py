@@ -22,7 +22,15 @@ from PIL import Image
 import requests
 import json
 import base64
+import time  # For retry delays
 from io import BytesIO
+
+# Try importing logger for better error handling
+try:
+    from app.core.logger import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
 
 print("=== Successfully imported all modules in hybrid_detector ===")
 
@@ -55,32 +63,84 @@ class HybridWindowDetector:
     def detect_windows_azure_vision(self, image_path, mask_save_path):
         """
         Azure Computer Vision AI-based window detection (MOST ACCURATE)
+        Enhanced with:
+        - Retry logic for reliability
+        - Better error handling
+        - Multiple detection strategies
+        - Caching support
         """
         if not self.azure_vision_available:
             return None, "Azure Computer Vision not configured"
         
         try:
+            # Try optimized service first (if available)
+            try:
+                from app.services.azure_vision_optimized import AzureVisionOptimized
+                optimized_service = AzureVisionOptimized(
+                    self.azure_vision_key,
+                    self.azure_vision_endpoint
+                )
+                result, success = optimized_service.detect_windows_with_segmentation(
+                    image_path,
+                    mask_save_path
+                )
+                if success and result:
+                    return result, True
+            except (ImportError, Exception) as e:
+                logger.debug(f"Optimized service not available, using standard method: {e}")
+            
+            # Fallback to standard method with improvements
             # Read image file
             with open(image_path, "rb") as image_file:
                 image_data = image_file.read()
             
-            # Azure Computer Vision API endpoint
-            vision_url = f"{self.azure_vision_endpoint}/vision/v3.2/analyze"
+            # Try v4.0 API first (newer, better), fallback to v3.2
+            api_versions = ['v4.0', 'v3.2']
+            last_error = None
             
-            # Parameters for object detection
-            params = {
-                'visualFeatures': 'Objects,Description',
-                'language': 'en',
-                'model-version': 'latest'
-            }
+            for api_version in api_versions:
+                try:
+                    # Azure Computer Vision API endpoint
+                    vision_url = f"{self.azure_vision_endpoint}/vision/{api_version}/analyze"
+                    
+                    # Enhanced parameters for better detection
+                    params = {
+                        'visualFeatures': 'Objects,Description,Tags',  # Added Tags for better detection
+                        'language': 'en',
+                        'model-version': 'latest',
+                        'details': 'Landmarks'  # Get more details
+                    }
+                    
+                    headers = {
+                        'Content-Type': 'application/octet-stream',
+                        'Ocp-Apim-Subscription-Key': self.azure_vision_key
+                    }
+                    
+                    # Make API call with timeout
+                    response = requests.post(
+                        vision_url,
+                        params=params,
+                        headers=headers,
+                        data=image_data,
+                        timeout=30  # Add timeout
+                    )
+                    
+                    if response.status_code == 200:
+                        break  # Success, use this version
+                    elif response.status_code == 429:  # Rate limit
+                        import time
+                        time.sleep(2)  # Wait before retry
+                        continue
+                    else:
+                        last_error = f"API {api_version} error: {response.status_code}"
+                        continue  # Try next version
+                        
+                except requests.exceptions.RequestException as e:
+                    last_error = str(e)
+                    continue  # Try next version
             
-            headers = {
-                'Content-Type': 'application/octet-stream',
-                'Ocp-Apim-Subscription-Key': self.azure_vision_key
-            }
-            
-            # Make API call
-            response = requests.post(vision_url, params=params, headers=headers, data=image_data)
+            if response.status_code != 200:
+                return None, f"Azure Computer Vision API error: {last_error or response.status_code}"
             
             if response.status_code == 200:
                 result = response.json()
@@ -125,12 +185,12 @@ class HybridWindowDetector:
                         w = bbox.get('w', 0)
                         h = bbox.get('h', 0)
                         
-                        # Add some padding to ensure full coverage
-                        padding = 10
-                        x = max(0, x - padding)
-                        y = max(0, y - padding)
-                        w = min(image_width - x, w + 2 * padding)
-                        h = min(image_height - y, h + 2 * padding)
+                        # Adaptive padding based on object size for better coverage
+                        padding = max(10, min(w, h) * 0.1)  # 10% of smaller dimension, min 10px
+                        x = max(0, int(x - padding))
+                        y = max(0, int(y - padding))
+                        w = min(image_width - x, int(w + 2 * padding))
+                        h = min(image_height - y, int(h + 2 * padding))
                         
                         # Fill rectangle in mask (using numpy instead of cv2.rectangle)
                         mask[y:y+h, x:x+w] = 255
