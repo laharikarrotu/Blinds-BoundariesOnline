@@ -2,7 +2,14 @@
 import numpy as np
 from PIL import Image
 from typing import Tuple, Optional
-import cv2
+
+# Try importing cv2, but don't fail if it's not available (Azure App Service)
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
+    cv2 = None
 
 
 class ImageOptimizer:
@@ -18,6 +25,7 @@ class ImageOptimizer:
         """
         Resize image maintaining aspect ratio.
         O(n) where n is number of pixels.
+        Uses PIL if cv2 is not available.
         
         Args:
             image: Input image as numpy array
@@ -31,7 +39,13 @@ class ImageOptimizer:
         height, width = image.shape[:2]
         
         if not maintain_aspect:
-            return cv2.resize(image, (max_width, max_height), interpolation=cv2.INTER_LANCZOS4)
+            if CV2_AVAILABLE:
+                return cv2.resize(image, (max_width, max_height), interpolation=cv2.INTER_LANCZOS4)
+            else:
+                # Use PIL as fallback
+                pil_image = Image.fromarray(image)
+                resized = pil_image.resize((max_width, max_height), Image.LANCZOS)
+                return np.array(resized)
         
         # Calculate scaling factor
         scale = min(max_width / width, max_height / height)
@@ -42,7 +56,13 @@ class ImageOptimizer:
         new_width = int(width * scale)
         new_height = int(height * scale)
         
-        return cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
+        if CV2_AVAILABLE:
+            return cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
+        else:
+            # Use PIL as fallback
+            pil_image = Image.fromarray(image)
+            resized = pil_image.resize((new_width, new_height), Image.LANCZOS)
+            return np.array(resized)
     
     @staticmethod
     def match_mask_dimensions(
@@ -52,6 +72,7 @@ class ImageOptimizer:
         """
         Efficiently resize mask to match target dimensions.
         Uses nearest-neighbor for binary masks (faster).
+        Uses PIL if cv2 is not available.
         
         Args:
             mask: Mask array
@@ -63,12 +84,18 @@ class ImageOptimizer:
         if mask.shape[:2] == target_shape:
             return mask
         
-        # Use nearest neighbor for binary masks (faster than LANCZOS)
-        return cv2.resize(
-            mask,
-            (target_shape[1], target_shape[0]),
-            interpolation=cv2.INTER_NEAREST
-        )
+        if CV2_AVAILABLE:
+            # Use nearest neighbor for binary masks (faster than LANCZOS)
+            return cv2.resize(
+                mask,
+                (target_shape[1], target_shape[0]),
+                interpolation=cv2.INTER_NEAREST
+            )
+        else:
+            # Use PIL as fallback
+            pil_image = Image.fromarray(mask)
+            resized = pil_image.resize((target_shape[1], target_shape[0]), Image.NEAREST)
+            return np.array(resized)
     
     @staticmethod
     def apply_mask_efficient(
@@ -114,6 +141,7 @@ class ImageOptimizer:
     def optimize_image_quality(image: np.ndarray) -> np.ndarray:
         """
         Enhance image quality using efficient algorithms.
+        Uses PIL if cv2 is not available.
         
         Args:
             image: Input image
@@ -121,16 +149,24 @@ class ImageOptimizer:
         Returns:
             Enhanced image
         """
-        # Denoise
-        denoised = cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
+        if not CV2_AVAILABLE:
+            # Return original if cv2 not available (quality optimization is optional)
+            return image
         
-        # Enhance contrast using CLAHE (efficient)
-        lab = cv2.cvtColor(denoised, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        l = clahe.apply(l)
-        enhanced = cv2.merge([l, a, b])
-        enhanced = cv2.cvtColor(enhanced, cv2.COLOR_LAB2BGR)
-        
-        return enhanced
+        try:
+            # Denoise
+            denoised = cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
+            
+            # Enhance contrast using CLAHE (efficient)
+            lab = cv2.cvtColor(denoised, cv2.COLOR_BGR2LAB)
+            l, a, b = cv2.split(lab)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            l = clahe.apply(l)
+            enhanced = cv2.merge([l, a, b])
+            enhanced = cv2.cvtColor(enhanced, cv2.COLOR_LAB2BGR)
+            
+            return enhanced
+        except Exception:
+            # Return original if optimization fails
+            return image
 

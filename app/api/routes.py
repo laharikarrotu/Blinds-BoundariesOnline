@@ -47,7 +47,10 @@ try:
     overlay_service = BlindOverlayService(storage_repo=storage_repo)
     logger.info("Blind overlay service initialized successfully")
 except Exception as e:
-    logger.warning(f"Overlay service not available: {e}")
+    error_msg = str(e) if str(e) else repr(e)
+    logger.error(f"Overlay service initialization failed: {error_msg}")
+    import traceback
+    logger.error(f"Traceback: {traceback.format_exc()}")
     overlay_service = None
 
 
