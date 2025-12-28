@@ -56,16 +56,24 @@ except Exception as e:
 
 @router.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint with detailed service status."""
     return {
         "status": "healthy",
         "version": "2.0.0",
         "components": {
             "detector": detection_service.detector is not None if detection_service else False,
+            "detection_service": detection_service is not None,
+            "overlay_service": overlay_service is not None,  # Critical: shows if overlay service initialized
+            "image_repo": image_repo is not None,
+            "storage_repo": storage_repo is not None,
             "cache": cache.size(),
             "azure_vision": config.azure_vision_available,
             "azure_storage": storage_repo.is_available() if storage_repo else False,
             "gemini_api": config.gemini_available
+        },
+        "service_status": {
+            "overlay_available": overlay_service is not None,
+            "detection_available": detection_service is not None
         }
     }
 
