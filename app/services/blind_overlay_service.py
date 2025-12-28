@@ -161,26 +161,66 @@ class BlindOverlayService:
             
             # Apply Gaussian smoothing to mask edges for realistic blending
             mask_smooth = filters.gaussian(mask_array.astype(float), sigma=1.0)
-            mask_normalized = (mask_smooth > 128).astype(np.float32) / 255.0
+            # Use soft threshold to prevent black spots at edges
+            mask_normalized = np.clip((mask_smooth - 30) / 200.0, 0, 1)  # Soft transition
             
             # Expand mask for broadcasting
             if len(original_array.shape) == 3:
                 mask_normalized = mask_normalized[:, :, np.newaxis]
             
-            # High-quality blending
-            result_array = (
+            # High-quality blending with dark pixel protection
+            blended = (
                 alpha * blind_array.astype(np.float32) * mask_normalized +
-                (1 - alpha) * original_array.astype(np.float32) * mask_normalized +
-                original_array.astype(np.float32) * (1 - mask_normalized)
-            ).astype(np.uint8)
+                (1 - alpha * mask_normalized) * original_array.astype(np.float32)
+            )
+            
+            # Prevent black spots: if result is too dark, use more original
+            brightness = np.mean(blended, axis=2) if len(blended.shape) == 3 else blended
+            too_dark = brightness < 15  # Very dark pixels
+            
+            if np.any(too_dark):
+                if len(blended.shape) == 3:
+                    too_dark = too_dark[:, :, np.newaxis]
+                # For very dark pixels, blend more with original
+                blended = np.where(
+                    too_dark,
+                    original_array.astype(np.float32) * 0.8 + blended * 0.2,
+                    blended
+                )
+            
+            result_array = blended.astype(np.uint8)
             
             logger.debug("Used scikit-image for high-quality blending")
         except (ImportError, Exception):
-            # Fallback to current NumPy method (already efficient)
-            result_array = self.optimizer.apply_mask_efficient(
-                original_array, mask_array, blind_array, alpha=alpha
+            # Fallback to improved NumPy method with black spot prevention
+            # Normalize mask with soft edges
+            mask_normalized = np.clip((mask_array.astype(float) - 30) / 200.0, 0, 1)
+            
+            # Expand mask for broadcasting
+            if len(original_array.shape) == 3:
+                mask_normalized = mask_normalized[:, :, np.newaxis]
+            
+            # Blend with dark pixel protection
+            blended = (
+                alpha * blind_array.astype(np.float32) * mask_normalized +
+                (1 - alpha * mask_normalized) * original_array.astype(np.float32)
             )
-            logger.debug("Used NumPy vectorized blending")
+            
+            # Prevent black spots
+            brightness = np.mean(blended, axis=2) if len(blended.shape) == 3 else blended
+            too_dark = brightness < 15
+            
+            if np.any(too_dark):
+                if len(blended.shape) == 3:
+                    too_dark = too_dark[:, :, np.newaxis]
+                blended = np.where(
+                    too_dark,
+                    original_array.astype(np.float32) * 0.8 + blended * 0.2,
+                    blended
+                )
+            
+            result_array = blended.astype(np.uint8)
+            logger.debug("Used NumPy vectorized blending with black spot prevention")
         
         return Image.fromarray(result_array)
 
