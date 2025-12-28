@@ -12,9 +12,15 @@ from app.cache.lru_cache import cache
 class WindowDetectionService:
     """Service for window detection with caching."""
     
-    def __init__(self):
-        self.mask_repo = MaskRepository()
-        self.storage_repo = StorageRepository()
+    def __init__(self, storage_repo=None):
+        """
+        Initialize window detection service.
+        
+        Args:
+            storage_repo: Optional StorageRepository for Azure integration
+        """
+        self.storage_repo = storage_repo or StorageRepository()
+        self.mask_repo = MaskRepository(storage_repo=self.storage_repo)
         self.detector = None
         self._initialize_detector()
     

@@ -24,18 +24,19 @@ overlay_service = None
 try:
     from app.repositories.image_repository import ImageRepository
     from app.repositories.storage_repository import StorageRepository
-    image_repo = ImageRepository()
     storage_repo = StorageRepository()
+    # Pass storage_repo to ImageRepository for Azure integration
+    image_repo = ImageRepository(storage_repo=storage_repo)
     logger.info("Repositories initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize repositories: {e}")
     import traceback
     traceback.print_exc()
 
-# Try importing and initializing services
+# Try importing and initializing services (pass storage_repo for Azure integration)
 try:
     from app.services.window_detection_service import WindowDetectionService
-    detection_service = WindowDetectionService()
+    detection_service = WindowDetectionService(storage_repo=storage_repo)
     logger.info("Window detection service initialized successfully")
 except Exception as e:
     logger.warning(f"Detection service not available: {e}")
@@ -43,7 +44,7 @@ except Exception as e:
 
 try:
     from app.services.blind_overlay_service import BlindOverlayService
-    overlay_service = BlindOverlayService()
+    overlay_service = BlindOverlayService(storage_repo=storage_repo)
     logger.info("Blind overlay service initialized successfully")
 except Exception as e:
     logger.warning(f"Overlay service not available: {e}")

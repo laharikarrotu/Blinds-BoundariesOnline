@@ -18,10 +18,16 @@ from app.services.blind_factory import BlindGeneratorFactory
 class BlindOverlayService:
     """Service for applying blind overlays with optimization."""
     
-    def __init__(self):
-        self.image_repo = ImageRepository()
-        self.mask_repo = MaskRepository()
-        self.storage_repo = StorageRepository()
+    def __init__(self, storage_repo=None):
+        """
+        Initialize blind overlay service.
+        
+        Args:
+            storage_repo: Optional StorageRepository for Azure integration
+        """
+        self.storage_repo = storage_repo or StorageRepository()
+        self.image_repo = ImageRepository(storage_repo=self.storage_repo)
+        self.mask_repo = MaskRepository(storage_repo=self.storage_repo)
         self.optimizer = ImageOptimizer()
     
     def apply_blind_overlay(

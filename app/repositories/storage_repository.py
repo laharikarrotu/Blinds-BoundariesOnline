@@ -43,7 +43,7 @@ class StorageRepository:
         Upload file to Azure Blob Storage.
         
         Args:
-            local_path: Local file path
+            local_path: Local file path or BytesIO object
             blob_name: Name for blob in storage
             
         Returns:
@@ -61,11 +61,19 @@ class StorageRepository:
                 container_client.create_container()
                 logger.info(f"Created container: {self.container_name}")
             
-            # Upload blob
-            with open(local_path, "rb") as data:
+            # Upload blob - handle both file path and BytesIO
+            if isinstance(local_path, str):
+                with open(local_path, "rb") as data:
+                    blob_client = container_client.upload_blob(
+                        name=blob_name,
+                        data=data,
+                        overwrite=True
+                    )
+            else:
+                # Assume it's a BytesIO or file-like object
                 blob_client = container_client.upload_blob(
                     name=blob_name,
-                    data=data,
+                    data=local_path,
                     overwrite=True
                 )
             

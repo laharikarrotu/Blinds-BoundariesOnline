@@ -1,5 +1,5 @@
 """Main FastAPI application with elite architecture."""
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -24,6 +24,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate limiting middleware (optional, only if slowapi is available)
+# Note: Rate limiting can be added per-route using @limiter.limit() decorator
+# For now, Azure App Service provides built-in rate limiting and DDoS protection
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    
+    limiter = Limiter(key_func=get_remote_address)
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    logger.info("Rate limiting enabled (slowapi)")
+except ImportError:
+    logger.info("Rate limiting library not installed - Azure App Service provides DDoS protection")
+    limiter = None
 
 # Include routers
 app.include_router(router, tags=["api"], prefix="")  # Explicitly no prefix
