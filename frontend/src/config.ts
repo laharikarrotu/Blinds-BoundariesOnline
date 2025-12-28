@@ -1,13 +1,16 @@
 // API Configuration
 // Use environment variable if set, otherwise detect production vs development
 const getApiBaseUrl = () => {
-  // If explicitly set via environment variable, use it
+  // If explicitly set via environment variable, use it (HIGHEST PRIORITY)
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }
   
   // If running on Vercel (production), use Azure backend
   if (import.meta.env.MODE === 'production' || window.location.hostname !== 'localhost') {
+    // Standard Azure App Service URL format
+    // If this doesn't work, get the actual URL from Azure Portal:
+    // Azure Portal → App Services → blinds-boundaries-api → Overview → URL
     return 'https://blinds-boundaries-api.azurewebsites.net';
   }
   
