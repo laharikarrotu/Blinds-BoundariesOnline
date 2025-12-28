@@ -79,6 +79,7 @@ def main():
         'app/api/main.py',
         'app/repositories/image_repository.py',
         'app/repositories/mask_repository.py',
+        'app/algorithms/image_optimizer.py',
     ]
     
     print("1. Checking file syntax and imports...")
