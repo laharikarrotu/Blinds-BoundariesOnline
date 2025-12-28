@@ -74,29 +74,52 @@ try:
         traceback.print_exc()
         # Fallback to old main_hybrid
         try:
-            from main_hybrid import app
+            # Try importing from app directory
+            from app.main_hybrid import app as hybrid_app
             print("✅ Successfully imported main_hybrid.py application (fallback)")
-            application = app
-        except ImportError as e:
-            print(f"⚠️ Could not import main_hybrid.py: {e}")
-            print("Creating fallback FastAPI app...")
-            
-            # Fallback: Create a basic FastAPI app
-            app = FastAPI()
-            
-            @app.get("/")
-            def read_root():
-                return {
-                    "message": "Blinds & Boundaries API is working!", 
-                    "status": "healthy",
-                    "note": "Running fallback app - main_hybrid.py not found"
-                }
-            
-            @app.get("/health")
-            def health_check():
-                return {"status": "healthy", "version": "1.0.0", "mode": "fallback"}
-            
-            application = app
+            application = hybrid_app
+        except ImportError as e1:
+            print(f"⚠️ Could not import app.main_hybrid: {e1}")
+            try:
+                # Try importing from root level
+                from main_hybrid import app as hybrid_app
+                print("✅ Successfully imported main_hybrid.py from root (fallback)")
+                application = hybrid_app
+            except ImportError as e2:
+                print(f"⚠️ Could not import main_hybrid.py: {e2}")
+                print("Creating fallback FastAPI app...")
+                
+                # Fallback: Create a basic FastAPI app with essential routes
+                app = FastAPI()
+                
+                @app.get("/")
+                def read_root():
+                    return {
+                        "message": "Blinds & Boundaries API is working!", 
+                        "status": "healthy",
+                        "note": "Running fallback app - both elite and main_hybrid failed to load",
+                        "mode": "fallback"
+                    }
+                
+                @app.get("/health")
+                def health_check():
+                    return {"status": "healthy", "version": "1.0.0", "mode": "fallback"}
+                
+                @app.get("/blinds-list")
+                @app.get("/blinds-list/")
+                def blinds_list_fallback():
+                    """Fallback blinds list endpoint."""
+                    return {
+                        "texture_blinds": [],
+                        "generated_patterns": ["horizontal", "vertical", "roller", "roman"],
+                        "materials": ["fabric", "wood", "metal", "plastic"],
+                        "texture_count": 0,
+                        "pattern_count": 4,
+                        "mode": "fallback",
+                        "note": "Elite architecture and main_hybrid failed to load"
+                    }
+                
+                application = app
     
     print("Step 5: Starting the server...")
     # For Azure App Service, we need to use the PORT environment variable
