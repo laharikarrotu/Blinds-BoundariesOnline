@@ -1,5 +1,6 @@
 """Service for window detection operations."""
 from typing import Optional
+from pathlib import Path
 import numpy as np
 from app.core.config import config
 from app.core.logger import logger
