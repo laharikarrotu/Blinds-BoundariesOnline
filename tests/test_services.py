@@ -17,7 +17,8 @@ class TestWindowDetectionService:
         """Detector should be available or None."""
         service = WindowDetectionService()
         # Detector might be None if dependencies not available
-        assert service.detector is None or hasattr(service.detector, 'detect')
+        # If detector exists, it should have the detect_window method
+        assert service.detector is None or hasattr(service.detector, 'detect_window')
 
 
 class TestBlindOverlayService:
