@@ -561,27 +561,42 @@ class HybridWindowDetector:
     
     def detect_window(self, image_path, mask_save_path):
         """
-        Main detection method - tries Azure Computer Vision first (AI), then Gemini, then OpenCV fallback
+        Main detection method - PRIORITY ORDER:
+        1. Azure Computer Vision (PRIMARY - BEST ACCURACY) ✅
+        2. Gemini API (fallback)
+        3. OpenCV (fallback)
+        4. Smart fallback mask (last resort)
         """
         print("🔍 Starting AI-enhanced hybrid window detection...")
+        print("   PRIMARY: Azure Computer Vision (tried FIRST)")
+        print("   FALLBACKS: Gemini → OpenCV → Smart Mask")
         
-        # Try Azure Computer Vision first (MOST ACCURATE - AI)
+        # Try Azure Computer Vision FIRST (PRIMARY - BEST ACCURACY)
         if self.azure_vision_available:
-            print("  1. Trying Azure Computer Vision (AI - MOST ACCURATE)...")
+            print("  1. 🎯 PRIMARY: Trying Azure Computer Vision (BEST ACCURACY)...")
             try:
                 azure_result, azure_status = self.detect_windows_azure_vision(image_path, mask_save_path)
                 
                 if azure_result:
-                    print("  ✅ Azure Computer Vision found window - using AI result")
+                    print("  ✅✅✅ Azure Computer Vision SUCCESS - using AI result (PRIMARY)")
                     return azure_result
                 else:
                     print(f"  ⚠️ Azure Computer Vision failed: {azure_status}")
+                    print("     → Falling back to Gemini API...")
             except Exception as e:
                 error_msg = str(e)
-                if 'libGL' in error_msg or 'libGL.so' in error_msg:
+                if '401' in error_msg or 'Unauthorized' in error_msg:
+                    print(f"  ❌ Azure Computer Vision AUTH ERROR (401): Check API key!")
+                    print("     → Falling back to Gemini API...")
+                elif 'libGL' in error_msg or 'libGL.so' in error_msg:
                     print(f"  ⚠️ Azure Computer Vision error (libGL): {error_msg}")
+                    print("     → Falling back to Gemini API...")
                 else:
                     print(f"  ⚠️ Azure Computer Vision error: {error_msg}")
+                    print("     → Falling back to Gemini API...")
+        else:
+            print("  ⚠️ Azure Computer Vision not configured - skipping PRIMARY method")
+            print("     → Trying Gemini API...")
         
         # Try Gemini API second (AI)
         if self.gemini_available:
