@@ -127,12 +127,23 @@ class HybridWindowDetector:
                     
                     if response.status_code == 200:
                         break  # Success, use this version
+                    elif response.status_code == 401:  # Unauthorized - API key issue
+                        error_detail = response.text[:200] if response.text else "No error details"
+                        last_error = f"API {api_version} authentication failed (401): Check AZURE_VISION_KEY. Error: {error_detail}"
+                        print(f"  ❌ Azure Computer Vision 401 Error: Invalid API key or endpoint")
+                        print(f"     Endpoint: {self.azure_vision_endpoint}")
+                        print(f"     Key present: {'Yes' if self.azure_vision_key else 'No'}")
+                        print(f"     Key length: {len(self.azure_vision_key) if self.azure_vision_key else 0} characters")
+                        # Don't try next version if auth failed - it will fail for all versions
+                        return None, last_error
                     elif response.status_code == 429:  # Rate limit
                         import time
                         time.sleep(2)  # Wait before retry
                         continue
                     else:
-                        last_error = f"API {api_version} error: {response.status_code}"
+                        error_detail = response.text[:200] if response.text else "No error details"
+                        last_error = f"API {api_version} error {response.status_code}: {error_detail}"
+                        print(f"  ⚠️ Azure Computer Vision {response.status_code}: {error_detail}")
                         continue  # Try next version
                         
                 except requests.exceptions.RequestException as e:
