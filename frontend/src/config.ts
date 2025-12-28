@@ -8,10 +8,9 @@ const getApiBaseUrl = () => {
   
   // If running on Vercel (production), use Azure backend
   if (import.meta.env.MODE === 'production' || window.location.hostname !== 'localhost') {
-    // Standard Azure App Service URL format
-    // If this doesn't work, get the actual URL from Azure Portal:
-    // Azure Portal → App Services → blinds-boundaries-api → Overview → URL
-    return 'https://blinds-boundaries-api.azurewebsites.net';
+    // Actual Azure App Service URL (retrieved from Azure)
+    // App Service is in Canada Central region with unique identifier
+    return 'https://blinds-boundaries-api-dbewbmh4bjdsc6ht.canadacentral-01.azurewebsites.net';
   }
   
   // Default to localhost for local development
