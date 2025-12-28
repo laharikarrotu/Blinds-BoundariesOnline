@@ -50,10 +50,14 @@ try:
     
     print("Step 4: Importing main application...")
     
-    # Set environment variables to handle OpenCV issues
+    # Set environment variables to handle OpenCV issues (fix libGL.so.1 error on Azure)
     os.environ['OPENCV_VIDEOIO_PRIORITY_MSMF'] = '0'
     os.environ['OPENCV_VIDEOIO_DEBUG'] = '1'
     os.environ['OPENCV_LOG_LEVEL'] = 'ERROR'
+    # Disable OpenGL/GLX to prevent libGL.so.1 errors on Azure App Service
+    os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+    os.environ['DISPLAY'] = ''
+    os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '0'
     
     # Add current directory to Python path (not app subdirectory)
     # This allows imports like "from app.api.main import app"

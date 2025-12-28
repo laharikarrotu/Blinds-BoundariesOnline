@@ -1,9 +1,24 @@
 print("=== Loading hybrid_detector.py ===")
 
-import cv2
+# Disable OpenGL/GLX before importing cv2 (fixes Azure App Service libGL.so.1 error)
+import os
+os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '0'
+os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '0'
+# Disable GUI backends that require libGL
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+os.environ['DISPLAY'] = ''
+
+try:
+    import cv2
+    # Test if cv2 works (some operations may still fail)
+    cv2.setNumThreads(1)  # Reduce threading issues
+    print("✅ OpenCV imported successfully")
+except Exception as e:
+    print(f"⚠️ OpenCV import warning: {e}")
+    cv2 = None
+
 import numpy as np
 from PIL import Image
-import os
 import requests
 import json
 import base64
@@ -70,9 +85,11 @@ class HybridWindowDetector:
             if response.status_code == 200:
                 result = response.json()
                 
-                # Load image for mask creation
-                image = cv2.imread(image_path)
-                mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
+                # Load image for mask creation (use PIL instead of cv2 to avoid libGL.so.1)
+                from PIL import Image as PILImage
+                pil_image = PILImage.open(image_path)
+                image_width, image_height = pil_image.size
+                mask = np.zeros((image_height, image_width), dtype=np.uint8)
                 
                 # Look for window-related objects
                 window_objects = []
@@ -95,7 +112,7 @@ class HybridWindowDetector:
                             
                             # Check if it's a reasonable size for a window
                             area = w * h
-                            image_area = image.shape[0] * image.shape[1]
+                            image_area = image_width * image_height
                             if area > image_area * 0.1:  # At least 10% of image
                                 window_objects.append(obj)
                 
@@ -112,10 +129,11 @@ class HybridWindowDetector:
                         padding = 10
                         x = max(0, x - padding)
                         y = max(0, y - padding)
-                        w = min(image.shape[1] - x, w + 2 * padding)
-                        h = min(image.shape[0] - y, h + 2 * padding)
+                        w = min(image_width - x, w + 2 * padding)
+                        h = min(image_height - y, h + 2 * padding)
                         
-                        cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
+                        # Fill rectangle in mask (using numpy instead of cv2.rectangle)
+                        mask[y:y+h, x:x+w] = 255
                 
                 # If no objects detected, try semantic analysis
                 if np.count_nonzero(mask) < 1000:
@@ -127,24 +145,31 @@ class HybridWindowDetector:
                         text = caption.get('text', '').lower()
                         if 'window' in text or 'glass' in text:
                             # Create a center-based mask if window is mentioned
-                            h, w = image.shape[:2]
-                            center_x, center_y = w // 2, h // 2
-                            mask_size = min(w, h) // 2
-                            cv2.rectangle(mask, 
-                                        (center_x - mask_size//2, center_y - mask_size//2),
-                                        (center_x + mask_size//2, center_y + mask_size//2), 
-                                        255, -1)
+                            center_x, center_y = image_width // 2, image_height // 2
+                            mask_size = min(image_width, image_height) // 2
+                            x1 = center_x - mask_size//2
+                            y1 = center_y - mask_size//2
+                            x2 = center_x + mask_size//2
+                            y2 = center_y + mask_size//2
+                            # Fill rectangle in mask (using numpy instead of cv2.rectangle)
+                            mask[y1:y2, x1:x2] = 255
                             break
                 
                 # Apply realistic blending preparation
-                final_mask = self._prepare_realistic_mask(mask, image.shape)
+                # Convert mask shape to match image dimensions
+                image_shape = (image_height, image_width, 3)  # (height, width, channels)
+                final_mask = self._prepare_realistic_mask(mask, image_shape)
                 
-                # Resize to 320x320
-                mask_resized = cv2.resize(final_mask, (320, 320))
-                cv2.imwrite(mask_save_path, mask_resized)
+                # Resize to 320x320 using PIL (avoids cv2 and libGL.so.1)
+                mask_image = PILImage.fromarray(final_mask.astype(np.uint8))
+                mask_resized = mask_image.resize((320, 320), PILImage.LANCZOS)
+                mask_resized.save(mask_save_path)
+                
+                # Convert back to numpy for counting
+                mask_resized_array = np.array(mask_resized)
                 
                 print(f"Azure Computer Vision detected {len(window_objects)} window objects")
-                return mask_save_path, np.count_nonzero(mask_resized) > 1000
+                return mask_save_path, np.count_nonzero(mask_resized_array) > 1000
                 
             else:
                 return None, f"Azure Computer Vision API error: {response.status_code}"
@@ -155,7 +180,11 @@ class HybridWindowDetector:
     def detect_windows_opencv(self, image_path, mask_save_path):
         """
         Enhanced OpenCV-based window detection (FREE) - Focus on 4 critical improvements
+        Returns: (mask_path or None, window_found: bool, error_message: str or None)
         """
+        if cv2 is None:
+            return None, False, "OpenCV not available (libGL.so.1 missing)"
+        
         try:
             # Load image
             image = cv2.imread(image_path)
@@ -190,15 +219,28 @@ class HybridWindowDetector:
             print(f"Enhanced window detection completed. Mask saved: {mask_save_path}")
             print(f"Mask size: {mask_resized.shape}, Non-zero pixels: {np.count_nonzero(mask_resized)}")
             
-            return mask_save_path, np.count_nonzero(mask_resized) > 1000
+            window_found = np.count_nonzero(mask_resized) > 1000
+            return mask_save_path, window_found, None
             
         except Exception as e:
+            error_msg = str(e)
             print(f"Enhanced OpenCV detection error: {e}")
-            # Create a simple fallback mask (center rectangle)
-            fallback_mask = np.zeros((320, 320), dtype=np.uint8)
-            cv2.rectangle(fallback_mask, (80, 80), (240, 240), 255, -1)
-            cv2.imwrite(mask_save_path, fallback_mask)
-            return mask_save_path, False
+            
+            # Check if it's the libGL.so.1 error
+            if 'libGL' in error_msg or 'libGL.so' in error_msg:
+                return None, False, f"OpenCV requires libGL.so.1 (not available on Azure App Service): {error_msg}"
+            
+            # Try to create a simple fallback mask if cv2 is available
+            if cv2 is not None:
+                try:
+                    fallback_mask = np.zeros((320, 320), dtype=np.uint8)
+                    cv2.rectangle(fallback_mask, (80, 80), (240, 240), 255, -1)
+                    cv2.imwrite(mask_save_path, fallback_mask)
+                    return mask_save_path, False, None
+                except Exception as e2:
+                    return None, False, f"OpenCV fallback failed: {e2}"
+            
+            return None, False, f"OpenCV error: {error_msg}"
     
     def _enhanced_edge_detection(self, gray):
         """
@@ -321,16 +363,24 @@ class HybridWindowDetector:
         """
         IMPROVEMENT 4: Realistic Blending Preparation
         Prepares mask for realistic blind application with proper edges
+        Uses scipy instead of cv2 to avoid libGL.so.1 dependency
         """
-        # Apply Gaussian blur to create soft edges for realistic blending
-        blurred_mask = cv2.GaussianBlur(glass_mask, (5, 5), 0)
+        from scipy import ndimage
+        
+        # Apply Gaussian blur to create soft edges for realistic blending (using scipy)
+        blurred_mask = ndimage.gaussian_filter(glass_mask.astype(float), sigma=1.5)
         
         # Normalize to 0-255 range
-        normalized_mask = cv2.normalize(blurred_mask, None, 0, 255, cv2.NORM_MINMAX)
+        mask_min = blurred_mask.min()
+        mask_max = blurred_mask.max()
+        if mask_max > mask_min:
+            normalized_mask = ((blurred_mask - mask_min) / (mask_max - mask_min) * 255).astype(np.uint8)
+        else:
+            normalized_mask = blurred_mask.astype(np.uint8)
         
-        # Apply slight erosion to avoid bleeding into frame areas
-        kernel = np.ones((2, 2), np.uint8)
-        final_mask = cv2.erode(normalized_mask, kernel, iterations=1)
+        # Apply slight erosion to avoid bleeding into frame areas (using scipy)
+        kernel = np.ones((2, 2), dtype=np.uint8)
+        final_mask = ndimage.binary_erosion(normalized_mask > 0, structure=kernel).astype(np.uint8) * 255
         
         return final_mask
     
@@ -454,13 +504,21 @@ class HybridWindowDetector:
                 print(f"  ⚠️ Gemini failed: {gemini_status}")
         
         # Try enhanced OpenCV as fallback (FREE)
-        print("  3. AI methods didn't find window - trying enhanced OpenCV (FREE)...")
-        opencv_result, window_found = self.detect_windows_opencv(image_path, mask_save_path)
+        if cv2 is not None:
+            print("  3. AI methods didn't find window - trying enhanced OpenCV (FREE)...")
+            opencv_result, window_found, error_msg = self.detect_windows_opencv(image_path, mask_save_path)
+            
+            if opencv_result and window_found:
+                print("  ✅ Enhanced OpenCV found window - using result (FREE)")
+                return opencv_result
+            elif opencv_result:
+                # OpenCV ran but didn't find window - use result anyway
+                print("  📋 Using enhanced OpenCV result as final fallback")
+                return opencv_result
+            else:
+                print(f"  ⚠️ OpenCV fallback failed: {error_msg}")
+        else:
+            print("  ⚠️ OpenCV not available (libGL.so.1 missing on Azure App Service)")
         
-        if window_found:
-            print("  ✅ Enhanced OpenCV found window - using result (FREE)")
-            return opencv_result
-        
-        # Final fallback to OpenCV result (even if no window found)
-        print("  📋 Using enhanced OpenCV result as final fallback")
-        return opencv_result 
+        # If all methods failed, raise an error
+        raise Exception("All window detection methods failed. Azure Computer Vision, Gemini, and OpenCV are unavailable or failed.") 

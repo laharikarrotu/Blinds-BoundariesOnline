@@ -96,8 +96,17 @@ class WindowDetectionService:
             return str(mask_path)
             
         except Exception as e:
-            logger.exception(f"Window detection failed for {image_id}")
-            raise WindowDetectionError(f"Window detection failed: {str(e)}")
+            error_msg = str(e)
+            logger.exception(f"Window detection failed for {image_id}: {error_msg}")
+            
+            # Check if it's the libGL.so.1 error
+            if 'libGL' in error_msg or 'libGL.so' in error_msg:
+                raise WindowDetectionError(
+                    "Window detection failed: OpenCV requires libGL.so.1 which is not available on Azure App Service. "
+                    "Please ensure Azure Computer Vision or Gemini API is configured for window detection."
+                )
+            
+            raise WindowDetectionError(f"Window detection failed: {error_msg}")
     
     def _create_fallback_mask(self, image_path: str, mask_path: str):
         """Create simple fallback mask."""
