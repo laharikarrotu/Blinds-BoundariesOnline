@@ -4,41 +4,47 @@ from fastapi.responses import JSONResponse
 from typing import Optional
 from pathlib import Path
 
+# Import core modules first (these should always work)
 from app.core.config import config
 from app.core.logger import logger
 from app.core.exceptions import AppException
 from app.models.blind import BlindData, BlindType, Material
-from app.repositories.image_repository import ImageRepository
-from app.repositories.storage_repository import StorageRepository
-from app.services.window_detection_service import WindowDetectionService
-from app.services.blind_overlay_service import BlindOverlayService
 from app.cache.lru_cache import cache
 
+# Initialize router immediately
 router = APIRouter()
 
-# Initialize services with error handling
-# If services fail to initialize, we'll still register routes but they'll fail gracefully
+# Import services with error handling - don't fail module import if services fail
 image_repo = None
 storage_repo = None
 detection_service = None
 overlay_service = None
 
+# Try importing repositories
 try:
+    from app.repositories.image_repository import ImageRepository
+    from app.repositories.storage_repository import StorageRepository
     image_repo = ImageRepository()
     storage_repo = StorageRepository()
+    logger.info("Repositories initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize repositories: {e}")
     import traceback
     traceback.print_exc()
 
+# Try importing and initializing services
 try:
+    from app.services.window_detection_service import WindowDetectionService
     detection_service = WindowDetectionService()
+    logger.info("Window detection service initialized successfully")
 except Exception as e:
     logger.warning(f"Detection service not available: {e}")
     detection_service = None
 
 try:
+    from app.services.blind_overlay_service import BlindOverlayService
     overlay_service = BlindOverlayService()
+    logger.info("Blind overlay service initialized successfully")
 except Exception as e:
     logger.warning(f"Overlay service not available: {e}")
     overlay_service = None

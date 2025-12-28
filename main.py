@@ -64,9 +64,31 @@ try:
     
     # Try to import the elite architecture application first
     try:
+        print("Attempting to import elite architecture...")
+        # First, verify we can import core modules
+        try:
+            from app.core.config import config
+            from app.core.logger import logger
+            print("✅ Core modules imported successfully")
+        except Exception as core_error:
+            print(f"⚠️ Core modules import failed: {core_error}")
+            raise
+        
+        # Try importing the main app
         from app.api.main import app as elite_app
         print("✅ Successfully imported elite architecture application")
-        print(f"Elite app routes: {[r.path for r in elite_app.routes if hasattr(r, 'path')]}")
+        
+        # Verify routes are registered
+        routes = [r.path for r in elite_app.routes if hasattr(r, 'path')]
+        print(f"✅ Elite app routes registered: {len(routes)} routes")
+        print(f"   Routes: {', '.join(sorted(routes))}")
+        
+        # Verify /blinds-list is in routes
+        if '/blinds-list' in routes or '/blinds-list/' in routes:
+            print("✅ /blinds-list route is registered")
+        else:
+            print("⚠️ /blinds-list route NOT found in registered routes!")
+        
         application = elite_app
     except (ImportError, Exception) as e:
         print(f"⚠️ Elite architecture import failed: {e}")
