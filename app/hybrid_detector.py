@@ -387,9 +387,10 @@ class HybridWindowDetector:
     def detect_windows_gemini(self, image_path, mask_save_path):
         """
         Enhanced Gemini API-based window detection (more accurate)
+        Returns: (mask_path or None, window_found: bool, error_message: str or None)
         """
         if not self.gemini_available:
-            return None, "Gemini API not configured"
+            return None, False, "Gemini API not configured"
         
         try:
             # Read and encode image
@@ -447,33 +448,45 @@ class HybridWindowDetector:
                     windows_data = json.loads(content)
                     windows = windows_data.get('windows', [])
                     
-                    # Create enhanced mask from Gemini results
-                    image = cv2.imread(image_path)
-                    mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
+                    # Create enhanced mask from Gemini results (using PIL instead of OpenCV)
+                    from PIL import Image as PILImage
+                    pil_image = PILImage.open(image_path)
+                    image_width, image_height = pil_image.size
+                    mask = np.zeros((image_height, image_width), dtype=np.uint8)
                     
                     for window in windows:
                         # Add full window area to mask
                         full_window = window.get('full_window', {})
                         if full_window:
                             x, y, w, h = full_window['x'], full_window['y'], full_window['width'], full_window['height']
-                            cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
+                            # Fill rectangle in mask (using numpy instead of cv2.rectangle)
+                            mask[y:y+h, x:x+w] = 255
                     
                     # Apply realistic blending preparation
-                    final_mask = self._prepare_realistic_mask(mask, image.shape)
+                    image_shape = (image_height, image_width, 3)  # (height, width, channels)
+                    final_mask = self._prepare_realistic_mask(mask, image_shape)
                     
-                    # Resize to 320x320
-                    mask_resized = cv2.resize(final_mask, (320, 320))
-                    cv2.imwrite(mask_save_path, mask_resized)
+                    # Resize to 320x320 using PIL (avoids cv2 and libGL.so.1)
+                    mask_image = PILImage.fromarray(final_mask.astype(np.uint8))
+                    mask_resized = mask_image.resize((320, 320), PILImage.LANCZOS)
+                    mask_resized.save(mask_save_path)
                     
-                    return mask_save_path, len(windows) > 0
+                    # Convert back to numpy for counting
+                    mask_resized_array = np.array(mask_resized)
+                    
+                    return mask_save_path, len(windows) > 0, None
                     
                 except json.JSONDecodeError:
-                    return None, "Failed to parse Gemini response"
+                    return None, False, "Failed to parse Gemini response"
             else:
-                return None, f"Gemini API error: {response.status_code}"
+                return None, False, f"Gemini API error: {response.status_code}"
                 
         except Exception as e:
-            return None, f"Gemini detection error: {e}"
+            error_msg = str(e)
+            # Check if it's the libGL.so.1 error
+            if 'libGL' in error_msg or 'libGL.so' in error_msg:
+                return None, False, f"OpenCV requires libGL.so.1 (not available on Azure App Service): {error_msg}"
+            return None, False, f"Gemini detection error: {e}"
     
     def detect_window(self, image_path, mask_save_path):
         """
@@ -481,16 +494,23 @@ class HybridWindowDetector:
         """
         print("🔍 Starting AI-enhanced hybrid window detection...")
         
-        # Try Azure Computer Vision first (MOST ACCURATE - AI)
+            # Try Azure Computer Vision first (MOST ACCURATE - AI)
         if self.azure_vision_available:
             print("  1. Trying Azure Computer Vision (AI - MOST ACCURATE)...")
-            azure_result, azure_status = self.detect_windows_azure_vision(image_path, mask_save_path)
-            
-            if azure_result:
-                print("  ✅ Azure Computer Vision found window - using AI result")
-                return azure_result
-            else:
-                print(f"  ⚠️ Azure Computer Vision failed: {azure_status}")
+            try:
+                azure_result, azure_status = self.detect_windows_azure_vision(image_path, mask_save_path)
+                
+                if azure_result:
+                    print("  ✅ Azure Computer Vision found window - using AI result")
+                    return azure_result
+                else:
+                    print(f"  ⚠️ Azure Computer Vision failed: {azure_status}")
+            except Exception as e:
+                error_msg = str(e)
+                if 'libGL' in error_msg or 'libGL.so' in error_msg:
+                    print(f"  ⚠️ Azure Computer Vision error (libGL): {error_msg}")
+                else:
+                    print(f"  ⚠️ Azure Computer Vision error: {error_msg}")
         
         # Try Gemini API second (AI)
         if self.gemini_available:

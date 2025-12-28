@@ -109,19 +109,25 @@ class WindowDetectionService:
             raise WindowDetectionError(f"Window detection failed: {error_msg}")
     
     def _create_fallback_mask(self, image_path: str, mask_path: str):
-        """Create simple fallback mask."""
-        import cv2
-        image = cv2.imread(image_path)
-        if image is None:
-            raise WindowDetectionError("Could not read image")
+        """Create simple fallback mask using PIL (no OpenCV)."""
+        from PIL import Image as PILImage
         
-        height, width = image.shape[:2]
-        mask = np.zeros((height, width), dtype=np.uint8)
-        
-        # Create center rectangle
-        x1, y1 = width // 4, height // 4
-        x2, y2 = 3 * width // 4, 3 * height // 4
-        cv2.rectangle(mask, (x1, y1), (x2, y2), 255, -1)
-        
-        cv2.imwrite(mask_path, mask)
+        try:
+            # Load image with PIL
+            image = PILImage.open(image_path)
+            width, height = image.size
+            
+            # Create center rectangle mask
+            mask = np.zeros((height, width), dtype=np.uint8)
+            x1, y1 = width // 4, height // 4
+            x2, y2 = 3 * width // 4, 3 * height // 4
+            
+            # Fill rectangle in mask (using numpy instead of cv2.rectangle)
+            mask[y1:y2, x1:x2] = 255
+            
+            # Save mask using PIL
+            mask_image = PILImage.fromarray(mask)
+            mask_image.save(mask_path)
+        except Exception as e:
+            raise WindowDetectionError(f"Could not create fallback mask: {e}")
 
