@@ -21,9 +21,28 @@ class MaskRepository:
         Args:
             storage_repo: Optional StorageRepository for Azure Blob Storage
         """
-        self.mask_dir = Path(config.MASK_DIR)
-        self.mask_dir.mkdir(exist_ok=True)
         self.storage_repo = storage_repo
+        
+        # On Azure App Service, use /tmp for temporary files (only writable directory)
+        if os.path.exists('/tmp') and os.access('/tmp', os.W_OK):
+            # Azure App Service - use /tmp for temporary files
+            self.mask_dir = Path('/tmp') / 'masks'
+        else:
+            # Local development - use configured directory
+            self.mask_dir = Path(config.MASK_DIR)
+        
+        # Try to create directory, but don't fail if it's read-only
+        try:
+            self.mask_dir.mkdir(parents=True, exist_ok=True)
+        except (PermissionError, OSError) as e:
+            logger.warning(f"Cannot create mask directory {self.mask_dir}: {e}")
+            # Fallback to /tmp if available
+            if not str(self.mask_dir).startswith('/tmp'):
+                try:
+                    self.mask_dir = Path('/tmp') / 'masks'
+                    self.mask_dir.mkdir(parents=True, exist_ok=True)
+                except Exception:
+                    pass
     
     def save_mask(self, image_id: str, mask_array: np.ndarray) -> str:
         """
@@ -69,8 +88,23 @@ class MaskRepository:
             except Exception as e:
                 logger.warning(f"Azure mask upload failed, using local storage: {e}")
         
-        # Always save locally for processing (masks are needed for image processing)
-        mask_image.save(mask_path)
+        # Try to save locally for processing (masks are needed for image processing)
+        try:
+            mask_image.save(mask_path)
+        except (PermissionError, OSError) as e:
+            # Read-only file system - save to /tmp if available
+            if not str(mask_path).startswith('/tmp'):
+                try:
+                    temp_mask_path = Path('/tmp') / 'masks' / mask_path.name
+                    temp_mask_path.parent.mkdir(parents=True, exist_ok=True)
+                    mask_image.save(temp_mask_path)
+                    mask_path = temp_mask_path
+                    logger.info(f"Saved mask to /tmp due to read-only filesystem")
+                except Exception as e2:
+                    logger.error(f"Cannot save mask anywhere: {e2}")
+                    raise IOError(f"Cannot save mask: filesystem is read-only. Error: {e}")
+            else:
+                raise
         
         return str(mask_path)
     

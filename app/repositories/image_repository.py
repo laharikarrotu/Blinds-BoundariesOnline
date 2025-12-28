@@ -20,9 +20,29 @@ class ImageRepository:
         Args:
             storage_repo: Optional StorageRepository for Azure Blob Storage
         """
-        self.upload_dir = Path(config.UPLOAD_DIR)
-        self.upload_dir.mkdir(exist_ok=True)
         self.storage_repo = storage_repo
+        
+        # On Azure App Service, use /tmp for temporary files (only writable directory)
+        # Otherwise use configured upload directory
+        if os.path.exists('/tmp') and os.access('/tmp', os.W_OK):
+            # Azure App Service - use /tmp for temporary files
+            self.upload_dir = Path('/tmp') / 'uploads'
+        else:
+            # Local development - use configured directory
+            self.upload_dir = Path(config.UPLOAD_DIR)
+        
+        # Try to create directory, but don't fail if it's read-only
+        try:
+            self.upload_dir.mkdir(parents=True, exist_ok=True)
+        except (PermissionError, OSError) as e:
+            logger.warning(f"Cannot create upload directory {self.upload_dir}: {e}")
+            # Fallback to /tmp if available
+            if not str(self.upload_dir).startswith('/tmp'):
+                try:
+                    self.upload_dir = Path('/tmp') / 'uploads'
+                    self.upload_dir.mkdir(parents=True, exist_ok=True)
+                except Exception:
+                    pass
     
     def save_uploaded_file(self, file_content: bytes, filename: str) -> str:
         """
@@ -60,19 +80,31 @@ class ImageRepository:
                 
                 logger.info(f"Image {image_id} saved to Azure Blob Storage")
                 
-                # Also save locally as fallback/cache
-                file_path = self.upload_dir / f"{image_id}{file_extension}"
-                with open(file_path, "wb") as f:
-                    f.write(file_content)
+                # Try to save locally as cache (only if directory is writable)
+                try:
+                    file_path = self.upload_dir / f"{image_id}{file_extension}"
+                    with open(file_path, "wb") as f:
+                        f.write(file_content)
+                except (PermissionError, OSError) as e:
+                    # Read-only file system (e.g., Azure App Service) - skip local cache
+                    logger.debug(f"Cannot save local cache (read-only filesystem): {e}")
                 
                 return image_id
             except Exception as e:
                 logger.warning(f"Azure upload failed, using local storage: {e}")
         
-        # Fallback to local storage
-        file_path = self.upload_dir / f"{image_id}{file_extension}"
-        with open(file_path, "wb") as f:
-            f.write(file_content)
+        # Fallback to local storage (only if Azure not available and directory is writable)
+        try:
+            file_path = self.upload_dir / f"{image_id}{file_extension}"
+            with open(file_path, "wb") as f:
+                f.write(file_content)
+            logger.info(f"Image {image_id} saved locally (Azure not available)")
+        except (PermissionError, OSError) as e:
+            # Read-only file system - cannot save locally
+            raise IOError(
+                f"Cannot save file: filesystem is read-only. "
+                f"Azure Blob Storage must be configured. Error: {e}"
+            )
         
         return image_id
     
@@ -102,7 +134,14 @@ class ImageRepository:
                 # Try to find blob with this image_id
                 for blob in container_client.list_blobs(name_starts_with=f"uploads/{image_id}"):
                     file_extension = Path(blob.name).suffix
-                    local_path = self.upload_dir / f"{image_id}{file_extension}"
+                    
+                    # Use /tmp for downloads on Azure App Service
+                    try:
+                        local_path = self.upload_dir / f"{image_id}{file_extension}"
+                    except (PermissionError, OSError):
+                        # Fallback to /tmp if upload_dir is read-only
+                        local_path = Path('/tmp') / 'uploads' / f"{image_id}{file_extension}"
+                        local_path.parent.mkdir(parents=True, exist_ok=True)
                     
                     # Download from Azure
                     blob_client = container_client.get_blob_client(blob.name)

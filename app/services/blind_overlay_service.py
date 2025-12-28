@@ -90,9 +90,23 @@ class BlindOverlayService:
             if not result_filename:
                 result_filename = f"tryon_{image_id}_{blind_data.blind_name or blind_data.blind_type or 'custom'}.png"
             
-            result_path = Path(config.RESULTS_DIR) / result_filename
-            result_path.parent.mkdir(exist_ok=True)
-            result_image.save(result_path)
+            # Use /tmp for results on Azure App Service (read-only filesystem)
+            if os.path.exists('/tmp') and os.access('/tmp', os.W_OK):
+                result_path = Path('/tmp') / 'results' / result_filename
+            else:
+                result_path = Path(config.RESULTS_DIR) / result_filename
+            
+            try:
+                result_path.parent.mkdir(parents=True, exist_ok=True)
+                result_image.save(result_path)
+            except (PermissionError, OSError) as e:
+                # Read-only file system - use /tmp
+                if not str(result_path).startswith('/tmp'):
+                    result_path = Path('/tmp') / 'results' / result_filename
+                    result_path.parent.mkdir(parents=True, exist_ok=True)
+                    result_image.save(result_path)
+                else:
+                    raise
             
             # Upload to Azure if available
             azure_url = None
