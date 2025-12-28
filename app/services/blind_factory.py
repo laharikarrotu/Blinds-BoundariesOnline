@@ -46,7 +46,13 @@ class GeneratedBlindGenerator:
     def generate(self, width: int, height: int, blind_data: BlindData) -> Image.Image:
         """Generate algorithmically created blind."""
         try:
-            from realistic_blind_generator import RealisticBlindGenerator
+            # Try importing from app directory first
+            try:
+                from app.realistic_blind_generator import RealisticBlindGenerator
+            except ImportError:
+                # Fallback to root level import
+                from realistic_blind_generator import RealisticBlindGenerator
+            
             generator = RealisticBlindGenerator()
             
             return generator.create_realistic_blind(
@@ -58,8 +64,8 @@ class GeneratedBlindGenerator:
                 depth_factor=0.8,
                 shadow_intensity=0.3
             )
-        except ImportError:
-            raise ValueError("Realistic blind generator not available")
+        except (ImportError, Exception) as e:
+            raise ValueError(f"Realistic blind generator not available: {e}")
 
 
 class BlindGeneratorFactory:

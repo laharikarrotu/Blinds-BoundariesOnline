@@ -21,15 +21,21 @@ class WindowDetectionService:
     def _initialize_detector(self):
         """Initialize window detector."""
         try:
-            from hybrid_detector import HybridWindowDetector
+            # Try importing from app directory first
+            try:
+                from app.hybrid_detector import HybridWindowDetector
+            except ImportError:
+                # Fallback to root level import
+                from hybrid_detector import HybridWindowDetector
+            
             self.detector = HybridWindowDetector(
                 gemini_api_key=config.GEMINI_API_KEY,
                 azure_vision_key=config.AZURE_VISION_KEY,
                 azure_vision_endpoint=config.AZURE_VISION_ENDPOINT
             )
             logger.info("Hybrid window detector initialized")
-        except ImportError:
-            logger.warning("Hybrid detector not available, using fallback")
+        except (ImportError, Exception) as e:
+            logger.warning(f"Hybrid detector not available, using fallback: {e}")
             self.detector = None
     
     def detect_window(self, image_id: str, image_path: str) -> str:
