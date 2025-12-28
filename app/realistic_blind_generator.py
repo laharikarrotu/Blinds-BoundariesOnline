@@ -1,8 +1,10 @@
 import numpy as np
-import cv2
 from PIL import Image, ImageDraw, ImageFilter
 import colorsys
 import math
+
+# Note: cv2 is NOT needed - this file uses only PIL/NumPy
+# Removed cv2 import to prevent libGL.so.1 error on Azure App Service
 
 class RealisticBlindGenerator:
     """
