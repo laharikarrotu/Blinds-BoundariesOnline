@@ -7,6 +7,7 @@ from pathlib import Path
 from app.core.config import config
 from app.core.logger import logger
 from app.api.routes import router
+from app.cache.lru_cache import cache
 
 # Create FastAPI app
 app = FastAPI(

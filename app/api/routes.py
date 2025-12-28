@@ -166,13 +166,18 @@ async def try_on(
 
 
 @router.get("/blinds-list")
+@router.get("/blinds-list/")  # Also support trailing slash
 async def blinds_list():
     """Get list of available blinds."""
     try:
         from pathlib import Path
         
         blinds_dir = Path(config.BLINDS_DIR)
-        if not blinds_dir.exists():
+        
+        # Ensure directory exists
+        blinds_dir.mkdir(parents=True, exist_ok=True)
+        
+        if not blinds_dir.exists() or not any(blinds_dir.iterdir()):
             return {
                 "texture_blinds": [],
                 "generated_patterns": [bt.value for bt in BlindType],
@@ -183,7 +188,7 @@ async def blinds_list():
         
         texture_blinds = [
             f.name for f in blinds_dir.iterdir()
-            if f.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.bmp']
+            if f.is_file() and f.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.bmp']
         ]
         
         return {
