@@ -26,7 +26,7 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(router, tags=["api"])
+app.include_router(router, tags=["api"], prefix="")  # Explicitly no prefix
 
 # Static file serving
 for dir_name, mount_path in [
