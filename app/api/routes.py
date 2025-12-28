@@ -16,11 +16,29 @@ from app.cache.lru_cache import cache
 
 router = APIRouter()
 
-# Initialize services (dependency injection)
-image_repo = ImageRepository()
-storage_repo = StorageRepository()
-detection_service = WindowDetectionService()
-overlay_service = BlindOverlayService()
+# Initialize services with error handling
+# If services fail to initialize, we'll still register routes but they'll fail gracefully
+try:
+    image_repo = ImageRepository()
+    storage_repo = StorageRepository()
+    detection_service = WindowDetectionService()
+    overlay_service = BlindOverlayService()
+except Exception as e:
+    logger.error(f"Failed to initialize some services: {e}")
+    # Initialize basic services that should always work
+    image_repo = ImageRepository()
+    storage_repo = StorageRepository()
+    # Try to initialize detection and overlay services, but allow them to be None
+    try:
+        detection_service = WindowDetectionService()
+    except Exception:
+        detection_service = None
+        logger.warning("Detection service not available")
+    try:
+        overlay_service = BlindOverlayService()
+    except Exception:
+        overlay_service = None
+        logger.warning("Overlay service not available")
 
 
 @router.get("/health")
@@ -30,10 +48,10 @@ async def health_check():
         "status": "healthy",
         "version": "2.0.0",
         "components": {
-            "detector": detection_service.detector is not None,
+            "detector": detection_service.detector is not None if detection_service else False,
             "cache": cache.size(),
             "azure_vision": config.azure_vision_available,
-            "azure_storage": storage_repo.is_available(),
+            "azure_storage": storage_repo.is_available() if storage_repo else False,
             "gemini_api": config.gemini_available
         }
     }
@@ -86,6 +104,8 @@ async def upload_image(file: UploadFile = File(...)):
 @router.post("/detect-window")
 async def detect_window(image_id: str = Query(..., description="Image ID from upload")):
     """Detect window endpoint."""
+    if not detection_service:
+        raise HTTPException(status_code=503, detail="Detection service not available")
     try:
         # Get image data
         image_data = image_repo.get_image_data(image_id)
@@ -132,6 +152,8 @@ async def try_on(
         )
         
         # Apply overlay
+        if not overlay_service:
+            raise HTTPException(status_code=503, detail="Overlay service not available")
         result_path = overlay_service.apply_blind_overlay(image_id, blind_data)
         
         logger.info(f"Try-on completed for {image_id}")

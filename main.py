@@ -65,7 +65,10 @@ try:
         from app.api.main import app as elite_app
         print("✅ Successfully imported elite architecture application")
         application = elite_app
-    except ImportError:
+    except (ImportError, Exception) as e:
+        print(f"⚠️ Elite architecture import failed: {e}")
+        import traceback
+        traceback.print_exc()
         # Fallback to old main_hybrid
         try:
             from main_hybrid import app
