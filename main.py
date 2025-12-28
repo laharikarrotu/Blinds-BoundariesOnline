@@ -55,15 +55,18 @@ try:
     os.environ['OPENCV_VIDEOIO_DEBUG'] = '1'
     os.environ['OPENCV_LOG_LEVEL'] = 'ERROR'
     
-    # Add app directory to Python path
-    app_path = os.path.join(os.path.dirname(__file__), 'app')
-    sys.path.insert(0, app_path)
-    print(f"Added {app_path} to Python path")
+    # Add current directory to Python path (not app subdirectory)
+    # This allows imports like "from app.api.main import app"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    print(f"Current directory added to Python path: {current_dir}")
     
     # Try to import the elite architecture application first
     try:
         from app.api.main import app as elite_app
         print("✅ Successfully imported elite architecture application")
+        print(f"Elite app routes: {[r.path for r in elite_app.routes if hasattr(r, 'path')]}")
         application = elite_app
     except (ImportError, Exception) as e:
         print(f"⚠️ Elite architecture import failed: {e}")

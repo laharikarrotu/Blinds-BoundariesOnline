@@ -41,10 +41,14 @@ for dir_name, mount_path in [
 @app.get("/")
 async def root():
     """Root endpoint."""
+    # List all registered routes for debugging
+    routes = [r.path for r in app.routes if hasattr(r, 'path')]
     return {
         "message": "Blinds & Boundaries API - Elite Architecture",
         "version": "2.0.0",
         "status": "operational",
+        "mode": "elite",
+        "routes": routes,
         "features": [
             "Optimized algorithms",
             "LRU caching",

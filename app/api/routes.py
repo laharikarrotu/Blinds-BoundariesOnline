@@ -191,6 +191,7 @@ async def try_on(
 @router.get("/blinds-list/")  # Also support trailing slash
 async def blinds_list():
     """Get list of available blinds."""
+    logger.info("Blinds-list endpoint called - Elite Architecture")
     try:
         from pathlib import Path
         
@@ -198,14 +199,17 @@ async def blinds_list():
         
         # Ensure directory exists
         blinds_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Blinds directory: {blinds_dir}, exists: {blinds_dir.exists()}")
         
         if not blinds_dir.exists() or not any(blinds_dir.iterdir()):
+            logger.info("Blinds directory is empty, returning empty list")
             return {
                 "texture_blinds": [],
                 "generated_patterns": [bt.value for bt in BlindType],
                 "materials": [m.value for m in Material],
                 "texture_count": 0,
-                "pattern_count": len(BlindType)
+                "pattern_count": len(BlindType),
+                "mode": "elite"
             }
         
         texture_blinds = [
@@ -213,12 +217,15 @@ async def blinds_list():
             if f.is_file() and f.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.bmp']
         ]
         
+        logger.info(f"Found {len(texture_blinds)} texture blinds")
+        
         return {
             "texture_blinds": texture_blinds,
             "generated_patterns": [bt.value for bt in BlindType],
             "materials": [m.value for m in Material],
             "texture_count": len(texture_blinds),
-            "pattern_count": len(BlindType)
+            "pattern_count": len(BlindType),
+            "mode": "elite"
         }
         
     except Exception as e:
