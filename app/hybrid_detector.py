@@ -94,14 +94,24 @@ class HybridWindowDetector:
             with open(image_path, "rb") as image_file:
                 image_data = image_file.read()
             
-            # Try v4.0 API first (newer, better), fallback to v3.2
-            api_versions = ['v4.0', 'v3.2']
+            # Try multiple API versions (v4.0, v3.2, v3.0, v2.1)
+            # Some resources may not support newer versions
+            api_versions = ['v4.0', 'v3.2', 'v3.0', 'v2.1']
             last_error = None
             
             for api_version in api_versions:
                 try:
                     # Azure Computer Vision API endpoint
-                    vision_url = f"{self.azure_vision_endpoint}/vision/{api_version}/analyze"
+                    # Handle endpoints that may or may not include '/vision'
+                    endpoint = self.azure_vision_endpoint.rstrip('/')
+                    if '/vision' in endpoint.lower():
+                        # Endpoint already includes /vision, use as-is
+                        vision_url = f"{endpoint}/{api_version}/analyze"
+                    else:
+                        # Standard endpoint format
+                        vision_url = f"{endpoint}/vision/{api_version}/analyze"
+                    
+                    print(f"  🔍 Trying Azure CV API {api_version} at: {vision_url}")
                     
                     # Enhanced parameters for better detection
                     params = {
@@ -442,26 +452,46 @@ class HybridWindowDetector:
         """
         IMPROVEMENT 4: Realistic Blending Preparation
         Prepares mask for realistic blind application with proper edges
-        Uses scipy instead of cv2 to avoid libGL.so.1 dependency
+        Uses scipy if available, falls back to PIL/NumPy
         """
-        from scipy import ndimage
-        
-        # Apply Gaussian blur to create soft edges for realistic blending (using scipy)
-        blurred_mask = ndimage.gaussian_filter(glass_mask.astype(float), sigma=1.5)
-        
-        # Normalize to 0-255 range
-        mask_min = blurred_mask.min()
-        mask_max = blurred_mask.max()
-        if mask_max > mask_min:
-            normalized_mask = ((blurred_mask - mask_min) / (mask_max - mask_min) * 255).astype(np.uint8)
-        else:
-            normalized_mask = blurred_mask.astype(np.uint8)
-        
-        # Apply slight erosion to avoid bleeding into frame areas (using scipy)
-        kernel = np.ones((2, 2), dtype=np.uint8)
-        final_mask = ndimage.binary_erosion(normalized_mask > 0, structure=kernel).astype(np.uint8) * 255
-        
-        return final_mask
+        try:
+            from scipy import ndimage
+            
+            # Apply Gaussian blur to create soft edges for realistic blending (using scipy)
+            blurred_mask = ndimage.gaussian_filter(glass_mask.astype(float), sigma=1.5)
+            
+            # Normalize to 0-255 range
+            mask_min = blurred_mask.min()
+            mask_max = blurred_mask.max()
+            if mask_max > mask_min:
+                normalized_mask = ((blurred_mask - mask_min) / (mask_max - mask_min) * 255).astype(np.uint8)
+            else:
+                normalized_mask = blurred_mask.astype(np.uint8)
+            
+            # Apply slight erosion to avoid bleeding into frame areas (using scipy)
+            kernel = np.ones((2, 2), dtype=np.uint8)
+            final_mask = ndimage.binary_erosion(normalized_mask > 0, structure=kernel).astype(np.uint8) * 255
+            
+            return final_mask
+        except ImportError:
+            # Fallback: Use PIL for Gaussian blur and NumPy for erosion
+            from PIL import Image, ImageFilter
+            mask_pil = Image.fromarray(glass_mask.astype(np.uint8))
+            blurred_pil = mask_pil.filter(ImageFilter.GaussianBlur(radius=1.5))
+            normalized_mask = np.array(blurred_pil)
+            
+            # Simple erosion using NumPy (shrink mask by 2 pixels)
+            h, w = normalized_mask.shape
+            final_mask = np.zeros_like(normalized_mask)
+            for y in range(1, h-1):
+                for x in range(1, w-1):
+                    if normalized_mask[y, x] > 128:
+                        # Check neighbors
+                        if (normalized_mask[y-1, x] > 128 and normalized_mask[y+1, x] > 128 and
+                            normalized_mask[y, x-1] > 128 and normalized_mask[y, x+1] > 128):
+                            final_mask[y, x] = 255
+            
+            return final_mask
     
     def detect_windows_gemini(self, image_path, mask_save_path):
         """

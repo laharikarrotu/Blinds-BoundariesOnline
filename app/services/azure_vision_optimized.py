@@ -132,11 +132,21 @@ class AzureVisionOptimized:
         cache_key: str
     ) -> Tuple[Optional[str], bool]:
         """Use REST API with retry logic and optimizations."""
-        # Use v4.0 API if available, fallback to v3.2
-        api_versions = ['v4.0', 'v3.2']
+        # Try multiple API versions (v4.0, v3.2, v3.0, v2.1)
+        # Some resources may not support newer versions
+        api_versions = ['v4.0', 'v3.2', 'v3.0', 'v2.1']
         
         for api_version in api_versions:
-            vision_url = f"{self.endpoint}/vision/{api_version}/analyze"
+            # Handle endpoints that may or may not include '/vision'
+            endpoint = self.endpoint.rstrip('/')
+            if '/vision' in endpoint.lower():
+                # Endpoint already includes /vision, use as-is
+                vision_url = f"{endpoint}/{api_version}/analyze"
+            else:
+                # Standard endpoint format
+                vision_url = f"{endpoint}/vision/{api_version}/analyze"
+            
+            logger.debug(f"Trying Azure CV API {api_version} at: {vision_url}")
             
             # Enhanced parameters for better detection
             params = {
@@ -280,9 +290,18 @@ class AzureVisionOptimized:
                     break
         
         # Apply smoothing for better blending
-        from scipy.ndimage import gaussian_filter
-        mask_smooth = gaussian_filter(mask.astype(float), sigma=2.0)
-        mask = (mask_smooth > 128).astype(np.uint8) * 255
+        try:
+            from scipy.ndimage import gaussian_filter
+            mask_smooth = gaussian_filter(mask.astype(float), sigma=2.0)
+            mask = (mask_smooth > 128).astype(np.uint8) * 255
+        except ImportError:
+            # Fallback: Use PIL/Pillow for smoothing if scipy not available
+            from PIL import Image, ImageFilter
+            mask_pil = Image.fromarray(mask)
+            mask_smooth = mask_pil.filter(ImageFilter.GaussianBlur(radius=2))
+            mask = np.array(mask_smooth)
+            mask = (mask > 128).astype(np.uint8) * 255
+            logger.warning("scipy not available, using PIL for mask smoothing")
         
         # Save mask
         mask_image = Image.fromarray(mask)
