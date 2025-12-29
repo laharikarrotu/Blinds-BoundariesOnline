@@ -28,8 +28,17 @@ class TestHealthEndpoint:
         assert "version" in data
     
     def test_health_check_has_components(self):
-        """Health endpoint should include components status."""
+        """Health endpoint should be fast and simple (optimized for Azure probes)."""
         response = client.get("/health")
+        data = response.json()
+        # Optimized health check returns simple status (fast for Azure probes)
+        assert "status" in data
+        assert data["status"] == "healthy"
+        assert "version" in data
+    
+    def test_health_check_detailed_endpoint(self):
+        """Detailed health endpoint should include components status."""
+        response = client.get("/health/detailed")
         data = response.json()
         assert "components" in data
         assert isinstance(data["components"], dict)
