@@ -138,11 +138,24 @@ class WindowDetectionService:
             # Strategy 1: Find largest rectangular region with strong edges
             # This typically corresponds to window frames
             # Use morphological operations (dilation) to connect edge fragments
-            from scipy.ndimage import binary_dilation, binary_erosion
-            
-            # Dilate edges to connect window frame segments
-            kernel = np.ones((5, 5), dtype=bool)
-            dilated_edges = binary_dilation(strong_edges > 128, structure=kernel)
+            try:
+                from scipy.ndimage import binary_dilation, binary_erosion
+                
+                # Dilate edges to connect window frame segments
+                kernel = np.ones((5, 5), dtype=bool)
+                dilated_edges = binary_dilation(strong_edges > 128, structure=kernel)
+            except ImportError:
+                # Fallback: Simple NumPy-based dilation
+                logger.warning("scipy not available, using NumPy for edge dilation")
+                dilated_edges = strong_edges > 128
+                # Simple dilation: expand by 2 pixels
+                h, w = dilated_edges.shape
+                dilated_edges_expanded = dilated_edges.copy()
+                for y in range(1, h-1):
+                    for x in range(1, w-1):
+                        if dilated_edges[y, x]:
+                            dilated_edges_expanded[y-1:y+2, x-1:x+2] = True
+                dilated_edges = dilated_edges_expanded
             
             # Find bounding box of largest connected region
             # This should be the window area
@@ -182,9 +195,18 @@ class WindowDetectionService:
                 mask[y1:y2, x1:x2] = 255
             
             # Apply soft edges to mask for better blending (avoid black spots)
-            from scipy.ndimage import gaussian_filter
-            blurred_mask = gaussian_filter(mask.astype(float), sigma=3)
-            mask = (blurred_mask > 50).astype(np.uint8) * 255
+            try:
+                from scipy.ndimage import gaussian_filter
+                blurred_mask = gaussian_filter(mask.astype(float), sigma=3)
+                mask = (blurred_mask > 50).astype(np.uint8) * 255
+            except ImportError:
+                # Fallback: Use PIL for Gaussian blur
+                from PIL import Image, ImageFilter
+                mask_pil = Image.fromarray(mask)
+                blurred_pil = mask_pil.filter(ImageFilter.GaussianBlur(radius=3))
+                blurred_mask = np.array(blurred_pil).astype(float)
+                mask = (blurred_mask > 50).astype(np.uint8) * 255
+                logger.warning("scipy not available, using PIL for mask smoothing")
             
             # Save mask using PIL
             mask_image = PILImage.fromarray(mask)
