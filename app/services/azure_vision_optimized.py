@@ -296,7 +296,8 @@ class AzureVisionOptimized:
             mask = (mask_smooth > 128).astype(np.uint8) * 255
         except ImportError:
             # Fallback: Use PIL/Pillow for smoothing if scipy not available
-            from PIL import Image, ImageFilter
+            # Image is already imported at top, just use it
+            from PIL import ImageFilter
             mask_pil = Image.fromarray(mask)
             mask_smooth = mask_pil.filter(ImageFilter.GaussianBlur(radius=2))
             mask = np.array(mask_smooth)
