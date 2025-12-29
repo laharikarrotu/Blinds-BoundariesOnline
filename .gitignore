@@ -138,8 +138,11 @@ masks/*
 deployment.zip
 *.zip
 
-# Internal documentation (not for public repo)
-docs/
+# Internal documentation (archived docs only)
+docs/archive/
+docs/*.md
+!docs/README.md
+!README.md
 
 # Large model files (if you want to exclude them)
 models/*.pth

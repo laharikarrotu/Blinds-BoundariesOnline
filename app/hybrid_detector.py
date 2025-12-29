@@ -231,16 +231,18 @@ class HybridWindowDetector:
                 image_shape = (image_height, image_width, 3)  # (height, width, channels)
                 final_mask = self._prepare_realistic_mask(mask, image_shape)
                 
-                # Resize to 320x320 using PIL (avoids cv2 and libGL.so.1)
+                # CRITICAL: Keep original image dimensions for pixel-perfect accuracy!
+                # Don't resize to 320x320 - that loses precision and causes black spots
                 mask_image = PILImage.fromarray(final_mask.astype(np.uint8))
-                mask_resized = mask_image.resize((320, 320), PILImage.LANCZOS)
-                mask_resized.save(mask_save_path)
+                # Save at original resolution for perfect fit
+                mask_image.save(mask_save_path)
                 
-                # Convert back to numpy for counting
-                mask_resized_array = np.array(mask_resized)
+                # Count pixels at original resolution
+                mask_array = np.array(mask_image)
                 
                 print(f"Azure Computer Vision detected {len(window_objects)} window objects")
-                return mask_save_path, np.count_nonzero(mask_resized_array) > 1000
+                print(f"Mask saved at original resolution: {image_width}x{image_height} (pixel-perfect)")
+                return mask_save_path, np.count_nonzero(mask_array) > 1000
                 
             else:
                 return None, f"Azure Computer Vision API error: {response.status_code}"
@@ -281,16 +283,15 @@ class HybridWindowDetector:
             # Prepare mask for realistic blind application
             final_mask = self._prepare_realistic_mask(full_window_mask, image.shape)
             
-            # Resize to 320x320 for consistency
-            mask_resized = cv2.resize(final_mask, (320, 320))
-            
-            # Save the mask
-            cv2.imwrite(mask_save_path, mask_resized)
+            # CRITICAL: Keep original image dimensions for pixel-perfect accuracy!
+            # Don't resize to 320x320 - that loses precision and causes black spots
+            # Save at original resolution
+            cv2.imwrite(mask_save_path, final_mask)
             
             print(f"Enhanced window detection completed. Mask saved: {mask_save_path}")
-            print(f"Mask size: {mask_resized.shape}, Non-zero pixels: {np.count_nonzero(mask_resized)}")
+            print(f"Mask size: {final_mask.shape} (original resolution), Non-zero pixels: {np.count_nonzero(final_mask)}")
             
-            window_found = np.count_nonzero(mask_resized) > 1000
+            window_found = np.count_nonzero(final_mask) > 1000
             return mask_save_path, window_found, None
             
         except Exception as e:
@@ -301,15 +302,22 @@ class HybridWindowDetector:
             if 'libGL' in error_msg or 'libGL.so' in error_msg:
                 return None, False, f"OpenCV requires libGL.so.1 (not available on Azure App Service): {error_msg}"
             
-            # Try to create a simple fallback mask if cv2 is available
-            if cv2 is not None:
-                try:
-                    fallback_mask = np.zeros((320, 320), dtype=np.uint8)
-                    cv2.rectangle(fallback_mask, (80, 80), (240, 240), 255, -1)
-                    cv2.imwrite(mask_save_path, fallback_mask)
-                    return mask_save_path, False, None
-                except Exception as e2:
-                    return None, False, f"OpenCV fallback failed: {e2}"
+                # Try to create a simple fallback mask if cv2 is available
+                if cv2 is not None:
+                    try:
+                        # Load image to get original dimensions
+                        image = cv2.imread(image_path)
+                        if image is not None:
+                            height, width = image.shape[:2]
+                            fallback_mask = np.zeros((height, width), dtype=np.uint8)
+                            # Create center rectangle at original resolution
+                            x1, y1 = width // 4, height // 4
+                            x2, y2 = 3 * width // 4, 3 * height // 4
+                            cv2.rectangle(fallback_mask, (x1, y1), (x2, y2), 255, -1)
+                            cv2.imwrite(mask_save_path, fallback_mask)
+                            return mask_save_path, False, None
+                    except Exception as e2:
+                        return None, False, f"OpenCV fallback failed: {e2}"
             
             return None, False, f"OpenCV error: {error_msg}"
     
@@ -537,14 +545,16 @@ class HybridWindowDetector:
                     image_shape = (image_height, image_width, 3)  # (height, width, channels)
                     final_mask = self._prepare_realistic_mask(mask, image_shape)
                     
-                    # Resize to 320x320 using PIL (avoids cv2 and libGL.so.1)
+                    # CRITICAL: Keep original image dimensions for pixel-perfect accuracy!
+                    # Don't resize to 320x320 - that loses precision and causes black spots
+                    # Save at original resolution
                     mask_image = PILImage.fromarray(final_mask.astype(np.uint8))
-                    mask_resized = mask_image.resize((320, 320), PILImage.LANCZOS)
-                    mask_resized.save(mask_save_path)
+                    mask_image.save(mask_save_path)
                     
-                    # Convert back to numpy for counting
-                    mask_resized_array = np.array(mask_resized)
+                    # Count pixels at original resolution
+                    mask_array = np.array(mask_image)
                     
+                    print(f"Gemini detected {len(windows)} windows, mask saved at {image_width}x{image_height} (pixel-perfect)")
                     return mask_save_path, len(windows) > 0, None
                     
                 except json.JSONDecodeError:
@@ -664,10 +674,11 @@ class HybridWindowDetector:
             x2, y2 = 3 * image_width // 4, 3 * image_height // 4
             mask[y1:y2, x1:x2] = 255
             
-            # Resize to 320x320
+            # CRITICAL: Keep original dimensions for pixel-perfect accuracy
+            # Don't resize - that causes dimension mismatches and black spots
             mask_image = PILImage.fromarray(mask)
-            mask_resized = mask_image.resize((320, 320), PILImage.LANCZOS)
-            mask_resized.save(mask_save_path)
+            mask_image.save(mask_save_path)
+            print(f"  ✅ Fallback mask saved at original resolution: {image_width}x{image_height}")
             
             print(f"  ✅ Fallback mask created and saved to {mask_save_path}")
             return mask_save_path
