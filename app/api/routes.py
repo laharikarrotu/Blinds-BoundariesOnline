@@ -3,6 +3,7 @@ from fastapi import APIRouter, File, UploadFile, Query, HTTPException
 from fastapi.responses import JSONResponse
 from typing import Optional
 from pathlib import Path
+import time
 
 # Import core modules first (these should always work)
 from app.core.config import config
@@ -56,14 +57,33 @@ except Exception as e:
 
 @router.get("/health")
 async def health_check():
-    """Health check endpoint with detailed service status."""
+    """
+    Health check endpoint - optimized for Azure App Service health probes.
+    Fast response without heavy checks to avoid timeouts.
+    Azure health probes need fast responses (< 1 second).
+    """
+    try:
+        # Fast health check - just verify app is running
+        # Don't check services that might be slow (Azure storage, etc.)
+        return {
+            "status": "healthy",
+            "version": "2.0.0"
+        }
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        raise HTTPException(status_code=503, detail=f"Health check failed: {str(e)}")
+
+
+@router.get("/health/detailed")
+async def detailed_health_check():
+    """Detailed health check with all component status (for debugging)."""
     return {
         "status": "healthy",
         "version": "2.0.0",
         "components": {
             "detector": detection_service.detector is not None if detection_service else False,
             "detection_service": detection_service is not None,
-            "overlay_service": overlay_service is not None,  # Critical: shows if overlay service initialized
+            "overlay_service": overlay_service is not None,
             "image_repo": image_repo is not None,
             "storage_repo": storage_repo is not None,
             "cache": cache.size(),

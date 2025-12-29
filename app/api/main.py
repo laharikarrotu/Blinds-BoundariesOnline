@@ -17,9 +17,24 @@ app = FastAPI(
 )
 
 # CORS middleware
+# Get allowed origins from config or environment
+allowed_origins = ["*"]  # Default: allow all (for development)
+if config.FRONTEND_URL:
+    # Production: use configured frontend URL
+    allowed_origins = [
+        config.FRONTEND_URL,
+        "http://localhost:5173",  # Local development
+        "http://localhost:3000",  # Alternative local port
+    ]
+    # Remove trailing slash if present
+    allowed_origins = [origin.rstrip('/') for origin in allowed_origins]
+    logger.info(f"CORS configured for frontend: {config.FRONTEND_URL}")
+else:
+    logger.warning("FRONTEND_URL not set - CORS allowing all origins (not recommended for production)")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure properly for production
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

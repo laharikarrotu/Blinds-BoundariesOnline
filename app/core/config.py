@@ -30,6 +30,9 @@ class Config:
     HOST: str = os.getenv("HOST", "0.0.0.0")
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     
+    # Frontend Configuration
+    FRONTEND_URL: Optional[str] = os.getenv("FRONTEND_URL")
+    
     # Directories
     UPLOAD_DIR: str = "uploads"
     MASK_DIR: str = "masks"
